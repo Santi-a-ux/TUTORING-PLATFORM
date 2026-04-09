@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Tutorías - Iniciar Sesión</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 h-screen flex items-center justify-center">
+
+    <div class="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
+        <h1 class="text-3xl font-bold text-center text-blue-600 mb-8">Plataforma de Tutorías</h1>
+        
+        <!-- Tabs -->
+        <div class="flex border-b mb-6">
+            <button id="tab-login" class="flex-1 py-2 text-center text-blue-600 border-b-2 border-blue-600 font-medium cursor-pointer">Iniciar Sesión</button>
+            <button id="tab-register" class="flex-1 py-2 text-center text-gray-500 border-b-2 border-transparent font-medium cursor-pointer">Registrarse</button>
+        </div>
+
+        <div id="alert-box" class="hidden mb-4 p-3 rounded text-sm"></div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="space-y-4">
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Correo Electrónico</label>
+                <input type="email" id="login-email" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" required>
+            </div>
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Contraseña</label>
+                <input type="password" id="login-password" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" required>
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded hover:bg-blue-700 transition">Iniciar Sesión</button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" class="space-y-4 hidden">
+            
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Nombre / Username</label>
+                <input type="text" id="reg-username" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" required>
+            </div>
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Correo Electrónico</label>
+                <input type="email" id="reg-email" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" required>
+            </div>
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Contraseña</label>
+                <input type="password" id="reg-password" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500" required>
+            </div>
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">Rol</label>
+                <select id="reg-role" class="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:border-blue-500">
+                    <option value="student">Estudiante</option>
+                    <option value="tutor">Tutor</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded hover:bg-green-700 transition">Crear Cuenta</button>
+        </form>
+    </div>
+
+    <script>
+        const API_BASE = "http://localhost:8000";
+
+        const tabLogin = document.getElementById('tab-login');
+        const tabRegister = document.getElementById('tab-register');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const alertBox = document.getElementById('alert-box');
+
+        function showAlert(msg, isSuccess = false) {
+            alertBox.textContent = msg;
+            alertBox.className = 'mb-4 p-3 rounded text-sm ' + (isSuccess ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+            alertBox.classList.remove('hidden');
+        }
+
+        tabLogin.addEventListener('click', () => {
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+            tabLogin.className = "flex-1 py-2 text-center text-blue-600 border-b-2 border-blue-600 font-medium cursor-pointer";
+            tabRegister.className = "flex-1 py-2 text-center text-gray-500 border-b-2 border-transparent font-medium cursor-pointer";
+        });
+
+        tabRegister.addEventListener('click', () => {
+            registerForm.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+            tabRegister.className = "flex-1 py-2 text-center text-blue-600 border-b-2 border-blue-600 font-medium cursor-pointer";
+            tabLogin.className = "flex-1 py-2 text-center text-gray-500 border-b-2 border-transparent font-medium cursor-pointer";
+        });
+
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                email: document.getElementById('login-email').value,
+                password: document.getElementById('login-password').value
+            };
+            
+            try {
+                const res = await fetch(API_BASE + '/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem("token", data.access_token);
+                    // fetch me
+                    const meRes = await fetch(API_BASE + '/auth/me', {
+                        headers: { 'Authorization': 'Bearer ' + data.access_token }
+                    });
+                    const meData = await meRes.json();
+                    localStorage.setItem("user", JSON.stringify(meData));
+                    window.location.href = "dashboard.html";
+                } else {
+                    showAlert(data.detail || "Error al iniciar sesión");
+                }
+            } catch (err) {
+                showAlert("Error de red: " + err);
+            }
+        });
+
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const role = document.getElementById('reg-role').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const username = document.getElementById('reg-username').value;
+            
+            const payload = { email, password, role };
+            try {
+                // 1. Create account
+                const res = await fetch(API_BASE + '/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!res.ok) {
+                    const data = await res.json();
+                    showAlert(data.detail || "Error en el registro");
+                    return;
+                }
+                
+                // 2. Auto-login to obtain token
+                const loginRes = await fetch(API_BASE + '/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (loginRes.ok) {
+                    // 3. Create the user's profile with the name/username
+                    const loginData = await loginRes.json();
+                    const token = loginData.access_token;
+                    
+                    await fetch(API_BASE + '/users/profiles', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({ display_name: username })
+                    });
+                }
+                
+                showAlert("¡Registro exitoso! Por favor, inicia sesión.", true); 
+                tabLogin.click();
+            } catch (err) {
+                showAlert("Error de red: " + err);
+            }
+        });
+        
+        // Auto-redirect if already logged in!
+        if (localStorage.getItem("token") && localStorage.getItem("user")) {
+            window.location.href = "dashboard.html";
+        }
+    </script>
+</body>
+</html>
