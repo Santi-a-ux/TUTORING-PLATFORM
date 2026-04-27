@@ -87,7 +87,8 @@ Este documento mantiene un registro de los pasos de desarrollo, los errores enco
 - Configurado \RedisPubSubManager\ para manejar los mensajes en tiempo real mediante canales de Redis, permitiendo escalar el chat en futuras instancias.
 - Solucionado error de sintaxis en el archivo \lembic/env.py\ (paréntesis sin cerrar durante el copiar y pegar) y añadidas las exclusiones de esquemas para evitar afectar a PostGIS.
 - Las migraciones de Alembic se aplicaron exitosamente dentro del contenedor \	tp-chat\.
-- \docker-compose.yml\ fue actualizado para restaurar las dependencias (\chat-service\ y \media-service\) en el API Gateway y añadir \edis\ al Chat Service.
+- \docker-compose.yml\ fue actualizado para restaurar las dependencias (\chat-service\ y \media-service\) en el API Gateway y añadir \
+edis\ al Chat Service.
 - Con esto concluye el Sprint 1 (Backend Core). Todos los microservicios están listos y sanos detrás del API Gateway (puerto 8000).
 
 
@@ -149,7 +150,11 @@ Este documento mantiene un registro de los pasos de desarrollo, los errores enco
 - **Causa:** El servicio geo-service requeria validacion de token JWT para geocodificacion mediante OSM.
 - **Solucion:** Se hizo publica la ruta /geocode, ya que no necesita datos de usuario, y se actualizaron los datos semilla (seed_db.py) hacia Medellin.
 
-### Frontend y Flujo de Registro (Doble campo Email)
+### Sprint 2: WebSockets y Lógica de Negocio
+### 1. API Gateway (WebSockets Proxy)
+- **Problema:** El API Gateway construido con `httpx` solo podía enrutar tráfico HTTP pero no mantener conexiones WebSockets en tiempo real bidireccionales, rompiendo la lógica del Chat.
+- **Solución:** Se integró la librería `websockets==12.0` al `requirements.txt` del Gateway. Se reemplazó el enrutador para soportar explícitamente `@app.websocket("/{service_name}/{path:path}")` traduciendo y puenteando el protocolo HTTP `ws://` hacia la red interna de Docker, manteniendo parámetros de tokens activos.
+- **Servicio Aislado:** Se corrigieron bugs de imports (`from fastapi import status`) en `services/chat-service` que impedían iniciar la conexión ws.
 - **Problema:** En el formulario de registro (`index.html`), el campo "Email" aparecía dos veces y el sistema fallaba si no se proveía el nombre de usuario (`display_name`).
 - **Causa:** El HTML y Javascript estaban mal estructurados. El endpoint de autenticación espera email y contraseña, pero el de perfil de usuario espera el nombre.
 - **Solución:** Se corrigió el HTML para pedir "Nombre / Username" y se actualizó el Javascript para hacer tres pasos en cadena: 1. `POST /auth/register`, 2. `POST /auth/login` (automático en background) y 3. `POST /users/profiles` (usando el token para guardar el nombre de usuario).
@@ -169,3 +174,14 @@ Este documento mantiene un registro de los pasos de desarrollo, los errores enco
   - **Eficiencia del Mapa:** Se cambió el proveedor a CARTO Voyager y se habilitó la bandera `{ preferCanvas: true }` y `keepBuffer: 6` en Leaflet, disparando el rendimiento web.
   - **Popups:** Se ocultó la tarifa estática. Ahora los globos de los tutores priorizan la "Especialidad principal", las "Categorías" y los "Años de Experiencia".
   - **Plan de Pricing Definido:** Se estableció la pauta lógica de cobro que el backend procesará al momento de "Reservar Tutor", dividiéndose en tres variables: Pauta A (Nivel académico, +30% universitario, +60% profesional), Pauta B (Complejidad de sesión/urgencia) y Pauta C (Bloques de tiempo fijos y no pagando por cada minuto).
+
+## Sprint 3: Rediseño Frontend SPA (Single Page Application)
+
+### Paso 1: Esqueleto y Navegación Base (JSX y Babel)
+- **Objetivo:** Iniciar la transición desde múltiples archivos `.html` a una aplicación modular hiper-dinámica de una sola página (SPA).
+- **Implementación (JSX):** Se condensó el diseño de diseño en un único archivo JavaScript usando sintaxis JSX (que permite escribir elementos y maquetación directamente dentro del código React). JSX es idóneo aquí porque permite estructurar componentes anidados en un solo archivo de manera limpia, manejando de forma síncrona los estados (p. ej. `useState`).
+- **Implementación (Babel):** Se instaló Babel en la cabecera HTML mediante CDN como compilador _"standalone"_. **¿Por qué Babel?** Porque los navegadores (Chrome, Edge, Safari) no entienden JSX por sí solos; necesitan que se traduzca de vuelta a Javascript regular. Usar Babel en el cliente es ultra-rápido para crear prototipos o MVP (Minimum Viable Product) en local ya que elimina la necesidad inmediata de montar empaquetadores monstruosos como Webpack, Vite o Next.js, logrando hot-reload directo.
+- **Resultado:** Se establecieron la Top Navbar, Sidebar Desktop y Bottom Menu para móvil, que responden a la navegación modificando un estado `currentView`.
+## [Error Registrado - 19/04/2026] Problema de Caché/Sincronización en Frontend
+- **Descripción**: El contenedor Docker del frontend (ttp-frontend) está sirviendo correctamente el nuevo 'index.html' (TutorMatch UI - React SPA) tal como se verificó vía cURL interno, pero en el navegador sigue mostrando la versión antigua en localhost:3000. Probablemente sea por un caché persistente (Disk Cache/Service Worker) del navegador que ignora las recargas.
+- **Nota Adicional**: El usuario reportó que la pantalla ahora sale completamente en blanco. Esto confirma que el caché se limpió, pero sugiere que hay un error de sintaxis o de ejecución en 'App.jsx' que hace que React / Babel falle al renderizar el componente principal. Pendiente depurar la consola del navegador en la próxima sesión.

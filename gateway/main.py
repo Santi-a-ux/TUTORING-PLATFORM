@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-import httpx
 from starlette.background import BackgroundTask
+import httpx
+import websockets
+import asyncio
 
 app = FastAPI(title="API Gateway", version="1.0.0")
 
@@ -81,3 +83,56 @@ async def gateway_router(service_name: str, path: str, request: Request):
     full_path = f"{service_name}/{path}"
     
     return await _reverse_proxy(SERVICES[service_name], request, full_path)
+
+@app.websocket("/{service_name}/{path:path}")
+async def websocket_gateway(websocket: WebSocket, service_name: str, path: str):
+    if service_name not in SERVICES:
+        await websocket.close(code=1008, reason="Service not found")
+        return
+
+    # Translate HTTP URL to WS URL
+    backend_url = SERVICES[service_name].replace("http://", "ws://")
+    target_url = f"{backend_url}/{service_name}/{path}"
+    
+    # Forward query parameters (like ?token=...)
+    query_string = websocket.url.query
+    if query_string:
+        target_url += f"?{query_string}"
+
+    await websocket.accept()
+
+    try:
+        # Connect to internal service
+        async with websockets.connect(target_url) as internal_ws:
+            
+            # Forward messages from client to internal service
+            async def forward_to_internal():
+                try:
+                    while True:
+                        data = await websocket.receive_text()
+                        await internal_ws.send(data)
+                except WebSocketDisconnect:
+                    await internal_ws.close()
+                except Exception as e:
+                    print(f"Error forwarding to internal: {e}")
+                    await internal_ws.close()
+
+            # Forward messages from internal service to client
+            async def forward_to_client():
+                try:
+                    while True:
+                        data = await internal_ws.recv()
+                        await websocket.send_text(data)
+                except websockets.exceptions.ConnectionClosed:
+                    await websocket.close()
+                except Exception as e:
+                    print(f"Error forwarding to client: {e}")
+                    await websocket.close()
+
+            await asyncio.gather(forward_to_internal(), forward_to_client())
+
+    except websockets.exceptions.InvalidURI:
+        await websocket.close(code=1008, reason="Invalid URI")
+    except Exception as e:
+        print(f"WebSocket Proxy Error: {e}")
+        await websocket.close(code=1011, reason="Internal Server Error")
