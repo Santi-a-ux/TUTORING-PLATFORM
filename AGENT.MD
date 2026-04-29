@@ -856,3 +856,89 @@ Si hay un error:
 
 > "El servicio X falla con este error: [pegar error].
 > Revisa el spec, encuentra la causa y corrígela."
+
+---
+## REGLAS SHADCN/UI
+
+- Instalar con: npx shadcn@latest init (Next.js, TypeScript, Tailwind CSS)
+- Componentes a instalar base: button, input, card, avatar, badge, 
+  dialog, sheet, tabs, separator, skeleton, sonner, sidebar
+- Color theme: violet (se mapea al #6C63FF del diseño actual)
+- Siempre importar desde "@/components/ui/..."
+- Para el mapa: dynamic import con { ssr: false } SIEMPRE
+- 'use client' solo en componentes con hooks o eventos de browser
+- El Sidebar usa el componente shadcn/ui Sidebar — NO re-implementar# SPRINT FRONTEND — TutorMatch Next.js + shadcn/ui
+
+## CONTEXTO
+El backend de TutorMatch está completamente funcional (microservicios FastAPI en Docker, 
+puertos 8001-8007 detrás del gateway en 8000). El problema está en el frontend: 
+actualmente es un archivo HTML con React via CDN + Babel, corriendo con python -m http.server. 
+Necesitamos reemplazarlo completamente por un frontend real en Next.js 14 + shadcn/ui.
+
+## OBJETIVO
+Reemplazar frontend/ con una aplicación Next.js 14 real, con:
+- App Router (páginas reales, no SPA con useState)
+- shadcn/ui como sistema de diseño
+- TypeScript estricto (sin ny)
+- Mapbox GL JS con dynamic import y ssr: false
+- Autenticación con JWT almacenado en cookies httpOnly (no localStorage)
+- WebSockets nativos para chat
+
+## PASO 1 — Setup inicial (hacer primero, verificar antes de continuar)
+
+### 1.1 Eliminar el frontend viejo
+Borrar frontend/index.html, frontend/App.jsx, frontend/Dockerfile (el viejo).
+
+### 1.2 Crear el proyecto Next.js
+Desde la raíz del repo:
+cd frontend
+npx create-next-app@latest . --typescript --tailwind --eslint --app --no-src-dir --import-alias "@/*"
+
+### 1.3 Inicializar shadcn/ui
+npx shadcn@latest init
+Elegir: Style: New York, Base color: Violet, CSS variables: Yes
+
+### 1.4 Instalar componentes shadcn necesarios
+npx shadcn@latest add button input card avatar badge dialog sheet tabs separator skeleton sonner sidebar navigation-menu
+
+### 1.5 Instalar dependencias adicionales
+npm install mapbox-gl @types/mapbox-gl
+npm install jose
+npm install @tanstack/react-query
+npm install zustand
+
+### 1.6 Crear el nuevo Dockerfile
+(Crear Dockerfile con multistage build standalone y configurar next.config.ts)
+
+## PASO 2 — Estructura de archivos y layout base
+- app/layout.tsx: Geist Sans, Providers
+- app/(main)/layout.tsx: SidebarProvider, AppSidebar, Middleware para auth
+- app/(auth)/layout.tsx: Layout centrado, redirect si ya hay token
+
+## PASO 3 — Auth (login + register)
+- lib/auth.ts con llamadas al backend y cookies
+- Páginas de login y registro usando shadcn
+
+## PASO 4 — Dashboard y Feed
+- app/(main)/dashboard/page.tsx: Fetch a /tutors/ y renderizado de cards.
+
+## PASO 5 — Explorar (mapa)
+- app/(main)/explore/page.tsx: Mapa Leaflet o Mapbox dynamic import.
+
+## PASO 6 — Perfil de tutor
+- app/(main)/profile/[id]/page.tsx: Tabs shadcn.
+
+## PASO 7 — Chat
+- app/(main)/messages/page.tsx: WebSockets nativos interactuando con el Gateway.
+
+## PASO 8 — Onboarding tutor
+- app/(main)/tutor/setup/page.tsx: Formulario multi-step.
+
+## CONVENCIONES OBLIGATORIAS
+1. Nunca usar ny en TypeScript
+2. Siempre tipar las respuestas de la API
+3. Todos los fetches al backend van por lib/api.ts
+4. El token se lee SIEMPRE desde cookies
+5. Mapas siempre con dynamic + ssr: false
+6. Usar sonner (Toaster) para estado loading/error/success.
+7. Skeleton para loading states.
