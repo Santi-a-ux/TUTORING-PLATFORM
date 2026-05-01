@@ -2,6 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/ui/skeleton";
+import CompactTutorCard from "@/components/ui/compact-tutor-card";
+import { useEffect, useState } from "react";
+import { fetchApi } from "@/lib/api";
 
 // Importación dinámica obligatoria para Mapbox (depende del objeto window y no debe ser SSR)
 const MapboxMap = dynamic(() => import("@/components/map/MapboxMap"), {
@@ -10,6 +13,20 @@ const MapboxMap = dynamic(() => import("@/components/map/MapboxMap"), {
 });
 
 export default function ExplorePage() {
+  const [tutors, setTutors] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await fetchApi<any[]>('/tutors/').catch(() => []);
+        if (mounted) setTutors(Array.isArray(res) ? res : (res && res.tutors) || []);
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
   return (
     <div className="space-y-6 h-full flex flex-col">
       <div>
@@ -18,8 +35,29 @@ export default function ExplorePage() {
           Encuentra tutores cercanos a tu ubicación usando nuestro mapa interactivo en tiempo real.
         </p>
       </div>
-      <div className="flex-1 w-full h-full">
-        <MapboxMap />
+      <div className="flex-1 w-full h-full flex">
+        <aside className="hidden md:block w-80 border-r bg-card p-3 overflow-auto">
+          <h3 className="text-sm font-semibold mb-2">Tutores cerca</h3>
+          <div className="space-y-2">
+            {tutors.length === 0 ? (
+              <Skeleton className="h-10 w-full" />
+            ) : (
+              tutors.slice(0, 20).map((t) => (
+                <CompactTutorCard key={t.id || t.user_id} user_id={t.user_id} name={t.display_name || t.full_name} specialty={t.specialties?.[0]} avatar_url={t.avatar_url} />
+              ))
+            )}
+          </div>
+        </aside>
+
+        <div className="flex-1 relative">
+          <div className="absolute left-1/2 -translate-x-1/2 top-6 z-20 w-[min(720px,90%)]">
+            <div className="backdrop-blur-sm bg-white/40 border border-white/30 rounded-full p-2 flex items-center gap-3 px-4">
+              <input className="flex-1 bg-transparent outline-none" placeholder="Buscar tutores, materias o ubicación" />
+              <button className="px-3 py-1 rounded-md bg-[var(--primary)] text-white">Buscar</button>
+            </div>
+          </div>
+          <MapboxMap />
+        </div>
       </div>
     </div>
   );

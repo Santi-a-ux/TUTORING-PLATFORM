@@ -284,6 +284,9 @@ function MessagesPageContent() {
         </CardContent>
       </Card>
 
+      {/* Demo list of recent conversations */}
+      <div className="md:hidden" />
+
       {/* Ventana de Mensajes */}
       <Card className="flex-1 flex flex-col h-full overflow-hidden">
         <CardHeader className="py-4 border-b shrink-0 flex flex-row items-center gap-3">
@@ -292,7 +295,10 @@ function MessagesPageContent() {
             <AvatarFallback>U</AvatarFallback>
           </Avatar>
           <div>
-            <CardTitle className="text-base">{receiverId ? `Conversación con ${receiverId.substring(0,8)}...` : "Selecciona un chat"}</CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base">{receiverId ? `Conversación con ${receiverId.substring(0,8)}...` : "Selecciona un chat"}</CardTitle>
+              {receiverId && <span className="h-2 w-2 rounded-full bg-green-500" aria-hidden />}
+            </div>
             <CardDescription>
               {conversationId ? "Conversación lista para enviar" : "Ingresa un destinatario para abrir la conversación"}
             </CardDescription>
@@ -313,9 +319,9 @@ function MessagesPageContent() {
                   const isMe = msg.sender_id === meId;
                   return (
                     <div key={`${msg.id}-${idx}`} className={`flex flex-col max-w-[75%] ${isMe ? "self-end" : "self-start"}`}>
-                      <div className={`p-3 rounded-2xl ${isMe ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-card text-card-foreground border rounded-bl-sm"}`}>
-                        {msg.content}
-                      </div>
+                          <div className={`p-3 rounded-2xl ${isMe ? "bg-[var(--primary)] text-white rounded-br-sm ml-auto" : "bg-card text-card-foreground border rounded-bl-sm"}`}>
+                            <div className={`${isMe ? 'text-white' : 'text-foreground'}`}>{msg.content}</div>
+                          </div>
                       <span className={`text-[10px] text-muted-foreground mt-1 ${isMe ? "text-right" : "text-left"}`}>
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
