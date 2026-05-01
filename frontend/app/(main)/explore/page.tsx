@@ -6,6 +6,19 @@ import CompactTutorCard from "@/components/ui/compact-tutor-card";
 import { useEffect, useState } from "react";
 import { fetchApi } from "@/lib/api";
 
+interface Tutor {
+  id?: string;
+  user_id: string;
+  display_name?: string;
+  full_name?: string;
+  specialties?: string[];
+  avatar_url?: string;
+}
+
+interface TutorsResponse {
+  tutors?: Tutor[];
+}
+
 // Importación dinámica obligatoria para Mapbox (depende del objeto window y no debe ser SSR)
 const MapboxMap = dynamic(() => import("@/components/map/MapboxMap"), {
   ssr: false,
@@ -13,14 +26,15 @@ const MapboxMap = dynamic(() => import("@/components/map/MapboxMap"), {
 });
 
 export default function ExplorePage() {
-  const [tutors, setTutors] = useState<any[]>([]);
+  const [tutors, setTutors] = useState<Tutor[]>([]);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       try {
-        const res = await fetchApi<any[]>('/tutors/').catch(() => []);
-        if (mounted) setTutors(Array.isArray(res) ? res : (res && res.tutors) || []);
+        const res = await fetchApi<Tutor[] | TutorsResponse>('/tutors/').catch(() => [] as Tutor[]);
+        const list = Array.isArray(res) ? res : res?.tutors ?? [];
+        if (mounted) setTutors(list);
       } catch (e) {
         // ignore
       }

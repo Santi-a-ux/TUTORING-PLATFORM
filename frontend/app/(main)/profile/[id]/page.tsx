@@ -11,6 +11,7 @@ interface TutorProfile {
   user_id: string;
   specialties?: string[];
   categories?: string[];
+  headline?: string;
   hourly_rate?: number;
   years_experience?: number;
   lat?: number;
