@@ -36,7 +36,7 @@ export default async function MainLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <main className="w-full flex-1 flex flex-col">
+      <main className="w-full flex-1 flex flex-col bg-[#E8EAF6]">
         <header className="flex h-14 items-center gap-4 border-b bg-background px-4 lg:h-15 lg:px-6">
           <SidebarTrigger />
           <div className="ml-auto flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-1.5">
