@@ -136,3 +136,12 @@ async def verify_token(req: VerifyTokenRequest):
         user_id=str(payload.get("sub")),
         role=payload.get("role")
     )
+
+@router.get("/ws-token")
+async def get_ws_token(current_user: User = Depends(get_current_user)):
+    """
+    Endpoint to retrieve the current access token for WebSocket authentication.
+    Used when the client cannot access httpOnly cookies via JavaScript.
+    """
+    access_token = create_access_token(current_user.id, current_user.role)
+    return {"token": access_token}

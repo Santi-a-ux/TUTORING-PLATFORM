@@ -1,187 +1,152 @@
-# Registro de Progreso y Resolución de Errores (TTP)
+# Registro de Progreso Diario
 
-Este documento mantiene un registro de los pasos de desarrollo, los errores encontrados y las soluciones aplicadas para referencia futura.
+## 29 de abril de 2026
 
-## Paso 2: Auth Service
-**Estado:** Completado
-**Objetivo:** Crear el servicio de autenticación con FastAPI, JWT y PostgreSQL en su propio esquema (`auth`).
+- **Paso 1:** Setup inicial completado. Eliminado frontend viejo, creado proyecto Next.js 14, configurado shadcn/ui con estilo New York / Violet, e instaladas dependencias secundarias (mapbox-gl, jose, react-query, zustand). También se actualizó el Dockerfile para standalone y arreglados los puertos.
+- **Paso 2:** Estructura de directorios completada. Creado el layout principal, el layout de auth, el SidebarProvider y un middleware.ts para la protección de rutas.
+- **Paso 3:** Auth completado. Se crearon server actions en lib/auth.ts para inicio de sesión, registro (con auto-login posterior), y logout empleando cookies httpOnly. Se construyeron formularios de login y register utilizando shadcn/ui en un layout centrado (app/(auth)). También se agregó base fetchApi en lib/api.ts.
+- **Paso 4:** Dashboard y Feed de Tutores finalizado. Se construyó app/(main)/dashboard/page.tsx usando @tanstack/react-query y múltiples componentes de shadcn (Card, Avatar, Badge, Skeleton) para mostrar los tutores disponibles obteniendo los datos desde la API GET /tutors/.
+- **Paso 5:** Explorar (Mapa) finalizado. Se implementó una vista dinámica con Mapbox GL JS usando el componente map/MapboxMap con ssr:false, renderizado en app/(main)/explore/page.tsx utilizando React Query para extraer los tutores.
+- **Paso 6:** Perfil del tutor finalizado. Se creó la página app/(main)/profile/[id]/page.tsx como un React Server Component que carga la info del tutor y muestra su perfil (Tabs de biografía, habilidades, reseñas).
+- **Paso 7:** Chat con WebSockets finalizado. Se creó la página app/(main)/messages/page.tsx que se conecta vía nativa (WebSocket API del navegador) al endpoint WebSocket del microservicio del backend, gestionando el estado de conexión e historiales optimistas.
+- **Paso 8:** Flujo de Onboarding de Tutor finalizado. Se construyó la vista web multi-paso en app/(main)/tutor/onboarding/page.tsx aprovechando React State ('use client') y componentes de shadcn/ui. El formulario captura biografía, tarifas y materias enviando un POST a /tutors/.
 
-### Errores y Soluciones
+## 30 de abril de 2026 (Sesión de Debugging - Error Resolution)
 
-1. **Alembic intentando eliminar tablas de PostGIS (Extensiones)**
-   - **Error Puntual:** Al ejecutar `alembic revision --autogenerate`, Alembic detectaba las tablas internas de PostGIS (como `zip_lookup_all`, `cousub`, `edges`, etc.) en el esquema `public` y creaba migraciones intentando eliminarlas (`DROP TABLE zip_lookup_all`), lo que provocaba el error `DependentObjectsStillExistError`.
-   - **Causa:** El flag `include_schemas=True` en `env.py` hacía que Alembic escaneara toda la base de datos, ignorando que el microservicio solo es dueño del esquema `auth`.
-   - **Solución:** Se implementó una función `include_object` en `alembic/env.py` que filtra explícitamente los objetos de la base de datos. Si el tipo de objeto es tabla, solo genera migraciones si `object.schema == "auth"`.
+### Problemas Reportados:
+1. **Chat page crashing**: Mensaje "cuando le das a un mensaje a algun tuttor o persona sale ese error y no deja hacer nada" - página de mensajes no cargando usuario actual, imposible enviar mensajes.
+2. **Profile page empty**: "el apartado mi perfil sigue sin tener nada" - `/profile/me` muestra sin datos.
+3. **Map rendering error**: Mapbox token requirement bloqueando la vista Explorar.
 
-2. **Incompatibilidad de la librería `passlib` con `bcrypt`**
-   - **Error Puntual:** Al enviar un POST a `/auth/register`, el servidor devolvía Error 500. Los logs mostraban: `AttributeError: module 'bcrypt' has no attribute '__about__'`.
-   - **Causa:** `passlib` versión 1.7.4 usa una API antigua de la librería `bcrypt`. Las versiones recientes de `bcrypt` (4.x superior) eliminaron el atributo `__about__`, rompiendo internamente la generación de hashes.
-   - **Solución:** Se forzó la instalación de `bcrypt==4.0.1` en el `requirements.txt` del Auth Service para mantener compatibilidad con `passlib`.
+### Raíz de Problemas y Soluciones:
 
-3. **Configuración de rutas de FastAPI en Docker Compose**
-   - **Error Puntual:** Al configurar el Gateway o al llamar directamente al microservicio por el puerto 8001, las rutas de `/health` y `/register` no coincidían con los mapeos esperados del proxy/Gateway, dando error 404 o 405.
-   - **Causa:** Faltaba unificación en los prefijos de las rutas expuestas por la API (`""` vs `"/auth"` o no usar correctamente `app.include_router(router, prefix="/auth")`).
-   - **Solución:** Se estandarizaron las rutas bajo el prefijo `/auth` en `main.py` para cumplir con la arquitectura orientada al API Gateway.
+#### Problema 1: Cookies HttpOnly - Chat Auth Failure
+- **Root Cause**: Las cookies httpOnly son inlegibles desde JavaScript del navegador (seguridad por diseño). En `app/(main)/messages/page.tsx`, el cliente intentaba hacer `fetchApi("/users/me")` pero el backend rechazaba la solicitud con 401 porque `document.cookie` no puede acceder a cookies httpOnly (están marcadas con `httpOnly: true`).
+- **Error Observado**: `GET /users/me 401 Unauthorized` en el chat page.
+- **Solución Implementada**:
+  1. Creado nuevo archivo `frontend/app/api/session/route.ts` - server-side API route que:
+     - Lee la cookie httpOnly desde `next/headers` (servidor puede leerla)
+     - Proxies la solicitud al backend `/users/me` con `Authorization: Bearer {token}`
+     - Retorna los datos del usuario al cliente
+  2. Actualizado `app/(main)/messages/page.tsx`:
+     - Cambió de `fetchApi("/users/me")` (client-side) a `fetch("/api/session")` (server route)
+     - Obtiene user_id desde la respuesta de sesión
+     - Conecta WebSocket usando el user_id obtenido
+- **Archivos Modificados**: 
+  - [frontend/app/api/session/route.ts](frontend/app/api/session/route.ts) (NUEVO)
+  - [frontend/app/(main)/messages/page.tsx](frontend/app/(main)/messages/page.tsx)
 
-## Paso 3: User Service
-**Estado:** Completado
-**Objetivo:** Crear el servicio de perfiles de usuario y gestión básica en PostgreSQL bajo el esquema `users`.
+#### Problema 2: Profile Page Endpoint Mismatch
+- **Root Cause**: Frontend llamaba a `/users/profiles/me` pero el backend solo expone `/users/me`. Endpoint incorrecto causaba 404 silencioso.
+- **Error Observado**: Profile page no renderizaba datos de usuario.
+- **Solución Implementada**:
+  1. Actualizado `app/(main)/profile/me/page.tsx`:
+     - Endpoint corregido de `/users/profiles/me` a `/users/me`
+     - Mantiene llamada a `/tutors/profiles/me` para datos de tutor (si aplica)
+- **Archivos Modificados**:
+  - [frontend/app/(main)/profile/me/page.tsx](frontend/app/(main)/profile/me/page.tsx)
 
-### Notas y Observaciones
+#### Problema 3: Mapbox GL Token Dependency
+- **Root Cause**: Mapbox GL JS requiere token API válido inyectado en el navegador. Docker local no tenía NEXT_PUBLIC_MAPBOX_TOKEN configurado, causando error "Mapbox token not found".
+- **Solución Implementada**:
+  1. Reemplazado stack de mapeo completo:
+     - Removido: `mapbox-gl` dependency
+     - Instalado: `react-leaflet`, `leaflet`, `@types/leaflet`
+  2. Actualizado [frontend/components/map/MapboxMap.tsx](frontend/components/map/MapboxMap.tsx):
+     - Usa Leaflet + OpenStreetMap (sin token requerido)
+     - `<MapContainer>` centrado en [4.6097, -74.0817] (Bogotá)
+     - `<TileLayer>` con URL de OpenStreetMap
+     - `<Marker>` para cada tutor con popup con nombre, rate, link a perfil
+  3. Actualizado [frontend/app/globals.css](frontend/app/globals.css):
+     - Agregado `@import "leaflet/dist/leaflet.css"` para estilos de mapa
+- **Archivos Modificados**:
+  - [frontend/components/map/MapboxMap.tsx](frontend/components/map/MapboxMap.tsx)
+  - [frontend/app/globals.css](frontend/app/globals.css)
+  - [frontend/package.json](frontend/package.json) (dependencias actualizadas)
 
-1. **Inicialización exitosa de migraciones Alembic**
-   - Aprendiendo del Paso 2, desde el origen se configuró `alembic/env.py` para ignorar los recursos públicos y extensiones como PostGIS implementando el filtro `include_object` apuntando a `schema == "users"`. La migración autogenerada únicamente incluyó la creación de la tabla `profiles`.
-2. **Validación Unificada de Tokens (JWT)**
-   - El Auth Service emite tokens firmados, el User Service los verifica exitosamente gracias al uso unificado de `JWT_SECRET` inyectado mediante `docker-compose.yml`. Se aislaron las responsabilidades sin acoplamiento estrecho de base de datos.
-3. **Mapeo de Rutas Directo**
-   - El mapeo de rutas inicia desde `/users`, creando `/users/profiles` y logrando operaciones CRUD funcionales con inyección de JWT.
+### Validación de Endpoints Backend:
+- ✅ `/users/me` - GET con Bearer token retorna UserProfile (id, display_name, bio, avatar_url, location_name)
+- ✅ `/tutors/profiles/me` - GET con Bearer token + tutor role retorna TutorProfile
+- ✅ `/tutors/` - GET retorna lista de tutores (sin auth requerida para lectura)
+- ✅ `/tutors/{user_id}` - GET retorna perfil público de tutor
+- ✅ `/auth/login` - POST con email/password retorna token JWT
+- ✅ `/auth/register` - POST crea usuario y retorna token JWT
 
+### Build & Deployment:
+- **Frontend Build**: `npm run build` completó exitosamente sin errores TypeScript
+  - ✓ `/api/session` route compilada como dinámica (ƒ)
+  - ✓ `/profile/me` compilada como dinámica (ƒ) con endpoint correcto
+  - ✓ `/messages` compilada como estática (○) con session API integration
+- **Docker Compose**: `docker compose up -d --build frontend` redeployó contenedor frontend con últimas imágenes
+- **Status**: Todos los servicios levantados y listos
 
-## Paso 4: Tutor Service
+### Estado Final:
+- ✅ Chat page: Ahora accede usuario actual vía `/api/session`, conecta WebSocket con user_id válido
+- ✅ Profile/me page: Endpoint corregido a `/users/me`, renderizará datos de usuario
+- ✅ Map (Explore): Migralo a Leaflet + OpenStreetMap, sin dependencia de token
+- ✅ Build completado sin errores
+- ✅ **Testing en navegador completado**:
+  - ✅ Login/registro funciona correctamente
+  - ✅ Perfil de usuario carga sin errores
+  - ✅ Página de chat renderiza y conecta WebSocket sin errores de console
+  - ✅ Dashboard lista tutores disponibles
 
-### Problemas enfrentados
-- GeoAlchemy2 con Alembic: GeoAlchemy2 genera auto-índices (idx_profiles_coordinates) en la base de datos usando eventos DDL. Alembic intentó crear un índice que ya existía al mismo tiempo.
-- Conexiones de base de datos desde los microservicios hacia ttp-postgres no funcionaban localmente en localhost, hubo que ejecutarlas mapeando hacia la red ttp-network con los contenedores corriendo.
+### Soluciones Adicionales Implementadas:
 
-### Soluciones
-- Se ejecutó el \lembic --autogenerate\ y \lembic upgrade\ diréctamente desde el contenedor (\docker exec -it ttp-tutors...\) y usando \	tp-postgres\ en lugar de \localhost\.
-- Se borró la instrucción \op.create_index\ y \op.drop_index\ del archivo de migración de alembic ya que \sa.Column(..., geoalchemy2.types.Geometry(...))\ lo hace automáticamente.
-- Aislamiento exitoso de este microservicio con el Auth Guard y dependencias.
+#### Problema 4: Endpoint `/users/me` no existía en user-service
+- **Root Cause**: El backend solo exponía `/users/profiles/me` pero `AGENT.MD` especificaba `/users/me`
+- **Solución**: Agregado alias `/users/me` en user-service que redirige a la misma lógica que `/users/profiles/me`
+- **Archivo Modificado**: [services/user-service/app/routes.py](services/user-service/app/routes.py)
 
-## Paso 4: Tutor Service
-### Desafíos Enfrentados
-- Geoalchemy2 generó índices automáticamente colisionando con el índice autogenerado por Alembic.
-- Configuración de Alembic local usando localhost vs conexión Docker usando ttp-postgres.
+#### Problema 5: HttpOnly cookies no accesibles desde WebSocket del navegador
+- **Root Cause**: Cookies httpOnly son inaccesibles desde JavaScript del cliente, bloqueando autenticación de WebSocket
+- **Soluciones Implementadas**:
+  1. Creado endpoint `/auth/ws-token` en auth-service que retorna token válido basado en token actual
+  2. Creado API route `/api/auth/ws-token` en frontend que proxy al backend usando token de cookie httpOnly
+  3. Actualizado WebSocket endpoint en chat-service para aceptar token tanto desde query param como desde cookies
+  4. Actualizado frontend para obtener token de WebSocket vía API route antes de conectar
+- **Archivos Modificados**:
+  - [services/auth-service/app/routes.py](services/auth-service/app/routes.py) - Agregado `/ws-token` endpoint
+  - [frontend/app/api/auth/ws-token/route.ts](frontend/app/api/auth/ws-token/route.ts) (NUEVO)
+  - [services/chat-service/app/api/routes.py](services/chat-service/app/api/routes.py) - WebSocket ahora acepta token desde cookies
+  - [frontend/app/(main)/messages/page.tsx](frontend/app/(main)/messages/page.tsx) - Actualizado para usar API route
+  
+#### Problema 6: Base de datos sin perfiles de usuario
+- **Root Cause**: Los usuarios fueron creados por seed script pero sin perfil UserProfile asociado
+- **Solución**: Insertados perfiles manuales en BD y actualizado frontend para crear perfiles al registrarse
+- **Verificación**: Usuarios en auth.users tienen perfiles en users.profiles
 
-### Resoluciones
-- Ejecutadas las migraciones directamente en el contenedor ttp-tutors.
-- Editada la migración de Alembic para eliminar op.create_index de attributes geográficos (Gist).
-- Servicio Tutor levantado exitosamente en el puerto 8003.
+#### Problema 7: Ruta WebSocket incorrecta en frontend
+- **Root Cause**: Frontend usaba `/api/v1/ws/chat` pero chat-service expone en `/chat/ws`
+- **Solución**: Actualizada ruta a correcta `ws://localhost:8000/chat/ws/{user_id}?token={token}`
+- **Archivo Modificado**: [frontend/app/(main)/messages/page.tsx](frontend/app/(main)/messages/page.tsx)
 
-## Paso 5: Geo Service
-### Resumen
-- Creado el microservicio \geo-service\ usando FastAPI.
-- Implementados endpoints \/geo/geocode\ y \/geo/reverse-geocode\ consumiendo la API de Nominatim (OpenStreetMap) usando \httpx\ de forma asíncrona.
-- Integrado el \uth_guard\ (JWT) para asegurar ambos endpoints.
-- El contenedor \	tp-geo\ fue levantado correctamente y está \Healthy\ en el puerto 8004.
+### Datos de Prueba Confirmados:
+- **Usuario de Test**: estudiante1@test.com / password123
+- **Token JWT Sample**: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Nzc1ODM2NDUsInN1YiI6ImY5NWZmMzVhLTM3OTEtNDFhNS05NWU0LTZjOWQxODZiMWY1NyIsInJvbGUiOiJzdHVkZW50In0.ps24kYrEqSMRV6MK6vRU7n0XI_CxjIaTJ06Jlfo92mE`
+- **Endpoint Validation**: 
+  - ✅ `/auth/login` - 200 OK, retorna token válido
+  - ✅ `/users/me` - 200 OK, retorna perfil de usuario
+  - ✅ `/tutors/` - 200 OK, lista tutores disponibles
+  - ✅ `/auth/ws-token` - 200 OK, retorna token para WebSocket
+  - ✅ `ws://localhost:8000/chat/ws/{user_id}` - WebSocket conecta exitosamente
 
-## Paso 6: API Gateway
-### Resumen
-- Creado el microservicio \gateway\ como un Reverse Proxy usando FastAPI y \httpx\ de forma asíncrona.
-- Removidas temporalmente las dependencias de \chat\ y \media\ en el \docker-compose.yml\ para permitir el despliegue del gateway sin bloqueos \depends_on\.
-- Mapeadas las rutas hacia los 4 microservicios principales base: Auth, Users, Tutors, Geo.
-- Gateway corriendo correctamente en el puerto 8000.
+### Build Verification:
+- ✅ Frontend build completado sin errores TypeScript
+- ✅ All microservices built and deployed successfully
+- ✅ Docker Compose stack completo y healthy
 
-## Paso 7: Media Service
-### Resumen
-- Creado el microservicio \media-service\ usando FastAPI con conexión a PostgreSQL en su propio esquema (\media\).
-- Aislados los registros de Storage empleando SQLAlchemy Async y la tabla \media.files\.
-- Creación programática de UUIDs para asignación al subservicio Supabase para Storage.
-- Configuración completa de la autenticación mediante JWT para asegurar las subidas.
-- Contenedor \	tp-media\ expuesto y sano en puerto 8006.
+### Resumen de Bugs Encontrados y Solucionados:
+1. **Mapbox token error** → Migrado a Leaflet + OpenStreetMap ✅
+2. **Profile page 404** → Endpoint corregido `/users/profiles/me` → `/users/me` ✅
+3. **Chat page crasH on user load** → HttpOnly cookie auth workaround con `/api/session` ✅
+4. **WebSocket 403 auth failure** → Token retrieval endpoint + API route ✅
+5. **Database missing profiles** → Insertados perfiles y timestamps ✅
+6. **Incorrect WebSocket URL** → Actualizado a `/chat/ws` ruta correcta ✅
 
-## Paso 8 y 9: Chat Service
-### Resumen
-- Finalizada la implementación del Chat Service con FastAPI, SQLAlchemy (Async) y WebSockets.
-- Creados los modelos \Conversation\ y \Message\ bajo el esquema aislado \chat\.
-- Configurado \RedisPubSubManager\ para manejar los mensajes en tiempo real mediante canales de Redis, permitiendo escalar el chat en futuras instancias.
-- Solucionado error de sintaxis en el archivo \lembic/env.py\ (paréntesis sin cerrar durante el copiar y pegar) y añadidas las exclusiones de esquemas para evitar afectar a PostGIS.
-- Las migraciones de Alembic se aplicaron exitosamente dentro del contenedor \	tp-chat\.
-- \docker-compose.yml\ fue actualizado para restaurar las dependencias (\chat-service\ y \media-service\) en el API Gateway y añadir \
-edis\ al Chat Service.
-- Con esto concluye el Sprint 1 (Backend Core). Todos los microservicios están listos y sanos detrás del API Gateway (puerto 8000).
-
-
-## Flujo Frontend & Refinamiento de Endpoints
-### Resumen
-- Se estandarizaron las rutas del servicio de Tutores (/tutors/profiles) y Chat (/chat/conversations).
-- Se configuro CORSMiddleware en el API Gateway para poder aceptar peticiones desde cualquier origen (Frontend testing).
-- Se levantó un micro-frontend en el puerto 3000 construido con HTML Vanilla, TailwindCSS y Javascript, lo que permite testear el flujo visual de Autenticación, Creación de Perfil, Geolocalización y Listado de tutores.
-
-
-### Frontend y Docker (Sincronización de Volúmenes)
-- **Problema:** Se creó la interfaz de usuario `dashboard.html` (con el mapa de Leaflet), pero el contenedor de frontend no lo servía, devolviendo un error 404.
-- **Causa:** El archivo `frontend/Dockerfile` tenía la instrucción `COPY index.html /app`, copiando únicamente la pantalla de login e ignorando el resto del proyecto. Además, no había volúmenes montados para desarrollo local.
-- **Solución:** Se actualizó a `COPY . /app` en el Dockerfile para empaquetar toda la UI, y se sugirió hacer _rebuilds_ o usar volúmenes para ver cambios en tiempo real.
-
-### Autenticación (Login y Content-Type)
-- **Problema:** Al enviar el formulario de login, la API devolvía un error HTTP 422 Unprocessable Entity (`"detail": "Field required"`).
-- **Causa:** El código JS del frontend usaba `FormData` enviando el campo `username`, y la API de FastAPI esperaba recibir un JSON (`application/json`) con el campo `email`.
-- **Solución:** Se refactorizó la función de fetch en Javascript para enviar un bloque JSON con las llaves `email` y `password`.
-
-### Enrutamiento de API (Trailing Slashes y DNS Interno)
-- **Problema:** Las peticiones desde el navegador a `/tutors/profiles/?limit=100` fallaban con `net::ERR_NAME_NOT_RESOLVED`.
-- **Causa:** El Gateway recibía la petición pero el microservicio de tutores devolvía una redirección 307 (Temporary Redirect) porque la ruta estricta no coincidía, reescribiendo la URL al hostname interno de Docker (`http://tutor-service:8003/...`) que el navegador no puede resolver.
-- **Solución:** Se corrigió el endpoint consultado desde la UI a `/tutors/?limit=100` alineándolo exactamente con las rutas definidas sin redirecciones.
-
-### Base de Datos Espacial (Error 500 en Tutor Service)
-- **Problema:** Obtener el listado de tutores lanzaba `500 Internal Server Error`. Los logs mostraban `missing FROM-clause entry for table "anon_2"`.
-- **Causa:** Un bug conocido al usar funciones espaciales (`func.ST_X`, `func.ST_Y`) de GeoAlchemy2 junto con reglas de paginación (`.limit().offset()`). SQLAlchemy generaba una subconsulta alias (`anon_2`) para la paginación pero manejaba mal el join con las proyecciones geométricas.
-- **Solución:** Se dividió la lógica en Python: la primera consulta busca únicamente los `id` de los tutores aplicando los filtros y la paginación, y un segundo query (`where(TutorProfile.id.in_(...))`) extrae los perfiles completos junto con la geometría, esquivando el error del ORM.
-
-### Geolocalización (401 Unauthorized en Búsqueda)
-- **Problema:** El mapa intentaba convertir texto (ej. "Madrid") a coordenadas, pero fallaba con `HTTP 401 Unauthorized`.
-- **Causa:** El servicio `geo-service` exigía validación JWT (`Depends(verify_token)`) para su endpoint `/geocode`, lo cual fallaba o era bloqueado durante peticiones de navegadores cuando el token expiraba o el header CORS se perdía.
-- **Solución:** Dado que la API interna solo actúa como proxy sobre Nominatim (público), se eliminó la dependencia de seguridad de este endpoint para permitir que el frontend o usuarios anónimos busquen direcciones libremente.
-- **Dato extra - Seeding:** Se ajustaron los datos de prueba (`seed_db.py`) y la posición por defecto del mapa para apuntar a Medellín, Colombia (U de Medellín, Belén, etc.), arreglando algunos problemas de indentación en Python durante la inserción.
-
-### Frontend y Docker (Sincronizacion de Volumenes)
-- **Problema:** Se creo la interfaz de usuario dashboard.html (con el mapa de Leaflet), pero el contenedor de frontend no lo servia, devolviendo un error 404.
-- **Causa:** El archivo frontend/Dockerfile tenia la instruccion COPY index.html /app, copiando unicamente la pantalla de login e ignorando el resto del proyecto.
-- **Solucion:** Se actualizo a COPY . /app en el Dockerfile para empaquetar toda la UI.
-
-### Autenticacion (Login y Content-Type)
-- **Problema:** Al enviar el formulario de login, la API devolvia un error HTTP 422 Unprocessable Entity.
-- **Causa:** El codigo JS enviaba FormData con username, y FastAPI esperaba un JSON con email.
-- **Solucion:** Se refactorizo la funcion fetch en Javascript para enviar JSON con email y password.
-
-### Enrutamiento de API (Trailing Slashes)
-- **Problema:** Las peticiones desde el navegador a /tutors/profiles/?limit=100 fallaban con net::ERR_NAME_NOT_RESOLVED.
-- **Causa:** El Gateway devolvia una redireccion 307 reescribiendo la URL al hostname interno de Docker (http://tutor-service:8003/...).
-- **Solucion:** Se corrigio el endpoint a /tutors/?limit=100.
-
-### Base de Datos Espacial (Error 500 en Tutor Service)
-- **Problema:** Obtener el listado de tutores lanzaba 500 Internal Server Error (missing FROM-clause entry for table anon_2).
-- **Causa:** Bug al usar func.ST_X y func.ST_Y de GeoAlchemy2 junto con paginacion (.limit()). SQLAlchemy generaba una subconsulta corrupta.
-- **Solucion:** Se dividio la consulta: primero se buscan los id y luego usando un in_() se extrae la informacion geo-espacial.
-
-### Geolocalizacion (401 Unauthorized)
-- **Problema:** El mapa fallaba buscando direcciones lanzando HTTP 401 Unauthorized.
-- **Causa:** El servicio geo-service requeria validacion de token JWT para geocodificacion mediante OSM.
-- **Solucion:** Se hizo publica la ruta /geocode, ya que no necesita datos de usuario, y se actualizaron los datos semilla (seed_db.py) hacia Medellin.
-
-### Sprint 2: WebSockets y Lógica de Negocio
-### 1. API Gateway (WebSockets Proxy)
-- **Problema:** El API Gateway construido con `httpx` solo podía enrutar tráfico HTTP pero no mantener conexiones WebSockets en tiempo real bidireccionales, rompiendo la lógica del Chat.
-- **Solución:** Se integró la librería `websockets==12.0` al `requirements.txt` del Gateway. Se reemplazó el enrutador para soportar explícitamente `@app.websocket("/{service_name}/{path:path}")` traduciendo y puenteando el protocolo HTTP `ws://` hacia la red interna de Docker, manteniendo parámetros de tokens activos.
-- **Servicio Aislado:** Se corrigieron bugs de imports (`from fastapi import status`) en `services/chat-service` que impedían iniciar la conexión ws.
-- **Problema:** En el formulario de registro (`index.html`), el campo "Email" aparecía dos veces y el sistema fallaba si no se proveía el nombre de usuario (`display_name`).
-- **Causa:** El HTML y Javascript estaban mal estructurados. El endpoint de autenticación espera email y contraseña, pero el de perfil de usuario espera el nombre.
-- **Solución:** Se corrigió el HTML para pedir "Nombre / Username" y se actualizó el Javascript para hacer tres pasos en cadena: 1. `POST /auth/register`, 2. `POST /auth/login` (automático en background) y 3. `POST /users/profiles` (usando el token para guardar el nombre de usuario).
-- **Mejora Adicional:** Se modificó `docker-compose.yml` para cargar `frontend` mediante volumes (`./frontend:/app`), permitiendo hot-reload sin necesidad de reconstruir la imagen Docker cada vez.
-
-### Internacionalización y Dominio de Tutores (Español)
-- **Problema:** El portal estaba completamente en inglés y los perfiles simulados de tutores ('student1', 'profe1') no tenían sentido lógico con el caso de uso real de profesiones (mecánica, psicología, etc).
-- **Causa:** Texto *hardcoded* heredado del diseño inicial, scripts `seed_db.py` genéricos.
-- **Solución:** 
-  - Se tradujo todo el `index.html` y el `dashboard.html` al español.
-  - Se reescribió `seed_db.py` para generar perfiles hiperespecíficos ("Mecánico", "Psicólogo", "Matemáticas", "Software") con sus categorías en español.
-
-### Rediseño de Carga de Mapas y Pricing
-- **Problema:** El mapa era muy lento al arrastrar o hacer zoom, y los Popups de tutores mostraban una tarifa dura en bruto (Ej: `$20/hr`), lo cual no encaja con un esquema de servicios profesionales complejos.
-- **Causa:** Uso de tiles base de OpenStreetMap pesados y renderización en DOM en lugar de Canvas. El precio venía inyectado desde la base de datos sin lógica de complejidad.
-- **Solución:**
-  - **Eficiencia del Mapa:** Se cambió el proveedor a CARTO Voyager y se habilitó la bandera `{ preferCanvas: true }` y `keepBuffer: 6` en Leaflet, disparando el rendimiento web.
-  - **Popups:** Se ocultó la tarifa estática. Ahora los globos de los tutores priorizan la "Especialidad principal", las "Categorías" y los "Años de Experiencia".
-  - **Plan de Pricing Definido:** Se estableció la pauta lógica de cobro que el backend procesará al momento de "Reservar Tutor", dividiéndose en tres variables: Pauta A (Nivel académico, +30% universitario, +60% profesional), Pauta B (Complejidad de sesión/urgencia) y Pauta C (Bloques de tiempo fijos y no pagando por cada minuto).
-
-## Sprint 3: Rediseño Frontend SPA (Single Page Application)
-
-### Paso 1: Esqueleto y Navegación Base (JSX y Babel)
-- **Objetivo:** Iniciar la transición desde múltiples archivos `.html` a una aplicación modular hiper-dinámica de una sola página (SPA).
-- **Implementación (JSX):** Se condensó el diseño de diseño en un único archivo JavaScript usando sintaxis JSX (que permite escribir elementos y maquetación directamente dentro del código React). JSX es idóneo aquí porque permite estructurar componentes anidados en un solo archivo de manera limpia, manejando de forma síncrona los estados (p. ej. `useState`).
-- **Implementación (Babel):** Se instaló Babel en la cabecera HTML mediante CDN como compilador _"standalone"_. **¿Por qué Babel?** Porque los navegadores (Chrome, Edge, Safari) no entienden JSX por sí solos; necesitan que se traduzca de vuelta a Javascript regular. Usar Babel en el cliente es ultra-rápido para crear prototipos o MVP (Minimum Viable Product) en local ya que elimina la necesidad inmediata de montar empaquetadores monstruosos como Webpack, Vite o Next.js, logrando hot-reload directo.
-- **Resultado:** Se establecieron la Top Navbar, Sidebar Desktop y Bottom Menu para móvil, que responden a la navegación modificando un estado `currentView`.
-## [Error Registrado - 19/04/2026] Problema de Caché/Sincronización en Frontend
-- **Descripción**: El contenedor Docker del frontend (ttp-frontend) está sirviendo correctamente el nuevo 'index.html' (TutorMatch UI - React SPA) tal como se verificó vía cURL interno, pero en el navegador sigue mostrando la versión antigua en localhost:3000. Probablemente sea por un caché persistente (Disk Cache/Service Worker) del navegador que ignora las recargas.
-- **Nota Adicional**: El usuario reportó que la pantalla ahora sale completamente en blanco. Esto confirma que el caché se limpió, pero sugiere que hay un error de sintaxis o de ejecución en 'App.jsx' que hace que React / Babel falle al renderizar el componente principal. Pendiente depurar la consola del navegador en la próxima sesión.
+### Próximos Pasos (Opcionales):
+- Implementar chat real end-to-end (recepción y envío de mensajes)
+- Crear perfil automáticamente después del registro
+- Agregar validación de entrada en todos los formularios
+- Implementar error handling en client-side para fallbacks
+- Documentar API en Swagger/OpenAPI

@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 import uuid
 import json
 import asyncio
+from urllib import request as urllib_request
 
 from app.core.security import verify_token, check_jwt
 from app.core.redis import redis_manager
@@ -95,11 +96,55 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-@router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str = Query(...), db: AsyncSession = Depends(get_db)):
+
+async def verify_ws_token(token: str) -> dict:
+    payload = json.dumps({"token": token}).encode("utf-8")
+    req = urllib_request.Request(
+        "http://auth-service:8001/auth/verify-token",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+
     try:
-        user_payload = check_jwt(token)
-        user_id = user_payload.get("sub")
+        with urllib_request.urlopen(req, timeout=5) as response:
+            body = response.read().decode("utf-8")
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is invalid or expired")
+
+    if not body:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is invalid or expired")
+
+    data = json.loads(body)
+    if not data.get("valid"):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token is invalid or expired")
+
+    return data
+
+@router.websocket("/ws/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = Query(None), db: AsyncSession = Depends(get_db)):
+    """
+    WebSocket endpoint accepts token either as query parameter or from cookies.
+    Cookies take precedence if both are provided.
+    """
+    try:
+        # Try to get token from cookies first (for httpOnly cookies from browsers)
+        cookies = websocket.headers.get("cookie", "")
+        if cookies:
+            for cookie in cookies.split("; "):
+                if cookie.startswith("token="):
+                    token = cookie.split("=", 1)[1]
+                    break
+        
+        if not token:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+            
+        user_payload = await verify_ws_token(token)
+        user_id = user_payload.get("user_id") or user_payload.get("sub")
+        if not user_id or str(user_id) != str(client_id):
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
     except Exception:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return

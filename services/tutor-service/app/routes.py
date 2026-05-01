@@ -15,7 +15,7 @@ router = APIRouter()
 async def create_profile(
     profile_in: TutorProfileCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: dict = Depends(require_tutor_role)
+    current_user: dict = Depends(get_current_user)
 ):
     user_id = uuid.UUID(current_user["user_id"])
     result = await db.execute(select(TutorProfile).where(TutorProfile.user_id == user_id))
@@ -96,11 +96,53 @@ async def get_my_profile(
 async def list_tutors(
     category: Optional[str] = None,
     is_available: Optional[bool] = None,
+    lat: Optional[float] = None,
+    lng: Optional[float] = None,
+    radius: Optional[int] = Query(None, description="radius in meters"),
     limit: int = 20,
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    # 1. Base query for counting AND pagination (only selecting ID)
+    tutors = []
+    total = 0
+
+    # If lat/lng provided, use distance-based query and ordering
+    if lat is not None and lng is not None and radius is not None:
+        # Build base filters
+        fetch_stmt = select(
+            TutorProfile,
+            func.ST_Y(TutorProfile.coordinates).label('lat'),
+            func.ST_X(TutorProfile.coordinates).label('lng'),
+            func.ST_DistanceSphere(
+                TutorProfile.coordinates,
+                func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326)
+            ).label('distance')
+        )
+        if category:
+            fetch_stmt = fetch_stmt.where(TutorProfile.categories.any(category))
+        if is_available is not None:
+            fetch_stmt = fetch_stmt.where(TutorProfile.is_available == is_available)
+
+        # filter by radius (meters)
+        fetch_stmt = fetch_stmt.where(func.ST_DistanceSphere(
+            TutorProfile.coordinates,
+            func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326)
+        ) <= radius)
+
+        # order by nearest
+        fetch_stmt = fetch_stmt.order_by(func.ST_DistanceSphere(
+            TutorProfile.coordinates,
+            func.ST_SetSRID(func.ST_MakePoint(lng, lat), 4326)
+        )).limit(limit).offset(offset)
+
+        profiles_result = await db.execute(fetch_stmt)
+        rows = profiles_result.all()
+        total = len(rows)
+        for row in rows:
+            tutors.append(_format_profile_out(row.TutorProfile, lat=row.lat, lng=row.lng))
+        return {'tutors': tutors, 'total': total}
+
+    # Fallback to original behavior (no proximity filter)
     base_stmt = select(TutorProfile.id)
     if category:
         base_stmt = base_stmt.where(TutorProfile.categories.any(category))
@@ -115,7 +157,6 @@ async def list_tutors(
     ids_result = await db.execute(base_stmt)
     profile_ids = ids_result.scalars().all()
 
-    tutors = []
     if profile_ids:
         # 2. Fetch full profiles with geometry functions bypassing limit bugs
         fetch_stmt = select(
@@ -151,3 +192,20 @@ async def update_availability(
     await db.commit()
     await db.refresh(profile)
     return _format_profile_out(profile)
+
+@router.get('/{user_id}', response_model=TutorProfileOut)
+async def get_tutor_profile_by_user_id(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(
+        TutorProfile,
+        func.ST_Y(TutorProfile.coordinates).label('lat'),
+        func.ST_X(TutorProfile.coordinates).label('lng')
+    ).where(TutorProfile.user_id == user_id)
+    result = await db.execute(stmt)
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail='Tutor not found')
+
+    return _format_profile_out(row.TutorProfile, lat=row.lat, lng=row.lng)

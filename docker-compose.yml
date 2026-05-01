@@ -236,8 +236,6 @@ services:
     ports:
       - "3000:3000"
     env_file: .env
-    volumes:
-      - ./frontend:/app
     depends_on:
       gateway:
         condition: service_healthy
