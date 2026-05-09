@@ -73,7 +73,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg overflow-hidden bg-gradient-to-r from-[var(--primary)]/90 to-[var(--primary)]/60 p-8 text-white">
+      <div className="rounded-lg overflow-hidden bg-gradient-to-r from-primary/90 to-primary/60 p-8 text-white">
         <h1 className="text-3xl font-bold">Bienvenido a TutorMatch</h1>
         <p className="mt-2 max-w-xl">Encuentra tutores cerca de ti y empieza a aprender hoy mismo.</p>
         <div className="mt-6 max-w-xl">
@@ -91,7 +91,7 @@ export default function DashboardPage() {
               <button
                 key={t}
                 onClick={() => setActiveTag(activeTag === t ? null : t)}
-                className={`px-3 py-1 rounded-full text-sm ${activeTag === t ? 'bg-[var(--primary)] text-white' : 'bg-[#EDE7F6] text-[var(--primary)]'}`}>
+                className={`px-3 py-1 rounded-full text-sm ${activeTag === t ? 'bg-primary text-white' : 'bg-accent text-primary'}`}>
                 {t}
               </button>
             ))}

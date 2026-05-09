@@ -20,9 +20,10 @@ export default function TutorOnboardingPage() {
     bio: "",
     hourly_rate: "",
     subjects: "",
-    latitude: "",
-    longitude: "",
   });
+
+  const [locationCaptured, setLocationCaptured] = useState(false);
+  const [locationCoords, setLocationCoords] = useState<{lat: number, lng: number} | null>(null);
 
   const handleNext = () => setStep((s) => s + 1);
   const handleBack = () => setStep((s) => s - 1);
@@ -31,37 +32,37 @@ export default function TutorOnboardingPage() {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const handleGetLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Tu navegador no soporta geolocalización");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocationCoords({ 
+          lat: pos.coords.latitude, 
+          lng: pos.coords.longitude 
+        });
+        setLocationCaptured(true);
+        toast.success("Ubicación capturada correctamente");
+      },
+      () => {
+        toast.error("No se pudo obtener tu ubicación");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      // Try to get browser geolocation if fields are empty
-      const getPosition = () => new Promise<GeolocationPosition | null>((resolve) => {
-        if (typeof navigator === "undefined" || !navigator.geolocation) return resolve(null);
-        navigator.geolocation.getCurrentPosition(
-          (pos) => resolve(pos),
-          () => resolve(null),
-          { enableHighAccuracy: true, timeout: 10000 }
-        );
-      });
-
-      let lat: number | null = formData.latitude ? Number(formData.latitude) : null;
-      let lng: number | null = formData.longitude ? Number(formData.longitude) : null;
-
-      if ((!lat || !lng)) {
-        const pos = await getPosition();
-        if (pos && pos.coords) {
-          lat = pos.coords.latitude;
-          lng = pos.coords.longitude;
-        }
-      }
-
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         // backend expects `specialties` (array) and top-level `lat`/`lng`
         specialties: formData.subjects ? formData.subjects.split(",").map((s) => s.trim()) : [],
         categories: [],
         hourly_rate: Number(formData.hourly_rate) || null,
-        lat: lat,
-        lng: lng,
+        lat: locationCoords?.lat || null,
+        lng: locationCoords?.lng || null,
       };
 
       await fetchApi("/tutors/profiles", {
@@ -120,27 +121,21 @@ export default function TutorOnboardingPage() {
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="latitude">Latitud (Opcional)</Label>
-                  <Input
-                    id="latitude"
-                    name="latitude"
-                    placeholder="-34.6037"
-                    value={formData.latitude}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="longitude">Longitud (Opcional)</Label>
-                  <Input
-                    id="longitude"
-                    name="longitude"
-                    placeholder="-58.3816"
-                    value={formData.longitude}
-                    onChange={handleChange}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label>Ubicación</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={handleGetLocation}
+                >
+                  {locationCaptured ? "✅ Ubicación capturada" : "📍 Usar mi ubicación actual"}
+                </Button>
+                {locationCaptured && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Coordenadas guardadas. Puedes continuar.
+                  </p>
+                )}
               </div>
             </div>
           )}

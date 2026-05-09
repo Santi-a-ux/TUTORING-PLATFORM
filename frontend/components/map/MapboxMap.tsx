@@ -1,214 +1,261 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import { fetchApi } from "@/lib/api";
-import Link from "next/link";
-import { MessageSquare } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect, useRef, useState } from 'react';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import { fetchApi } from '@/lib/api';
 
 interface Tutor {
-  id: string;
+  id?: string;
   user_id: string;
-  full_name?: string;
   display_name?: string;
-  avatar_url?: string;
+  full_name?: string;
   specialties?: string[];
+  hourly_rate?: number;
   lat?: number;
   lng?: number;
   latitude?: number;
   longitude?: number;
-  hourly_rate?: number;
+  avatar_url?: string;
 }
 
 interface TutorsResponse {
   tutors?: Tutor[];
 }
 
-const getTutorAvatar = (tutor: Tutor) => {
-  if (tutor.avatar_url && tutor.avatar_url.trim()) {
-    return tutor.avatar_url.trim();
-  }
-
-  return `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`;
-};
-
-const createAvatarIcon = (avatarUrl: string, name: string) => {
-  const safeUrl = avatarUrl.replace(/"/g, "");
-  const safeName = name.replace(/"/g, "");
-
-  return L.divIcon({
-    className: "avatar-map-marker",
-    html: `
-      <div style="
-        width: 42px;
-        height: 42px;
-        border-radius: 9999px;
-        border: 3px solid white;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.28);
-        background-image: url('${safeUrl}');
-        background-size: cover;
-        background-position: center;
-        overflow: hidden;
-      " aria-label="${safeName}"></div>
-    `,
-    iconSize: [42, 42],
-    iconAnchor: [21, 42],
-    popupAnchor: [0, -34],
-  });
-};
+const RADII = [2, 5, 10, 20, 50]; // km — expansión progresiva tipo Didi
+const DEFAULT_CENTER: [number, number] = [-75.5898, 6.2442]; // Medellín
 
 export default function MapboxMap() {
-  const [tutors, setTutors] = useState<Tutor[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
 
-  useEffect(() => {
-    let mounted = true;
-    const radii = [1000, 3000, 10000, 30000, 100000];
+  const [isSearching, setIsSearching] = useState(false);
+  const [foundCount, setFoundCount] = useState(0);
+  const [currentRadius, setCurrentRadius] = useState(0);
 
-    const getPosition = () => new Promise<GeolocationPosition | null>((resolve) => {
-      if (typeof navigator === "undefined" || !navigator.geolocation) return resolve(null);
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve(pos),
-        () => resolve(null),
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    });
+  const clearMarkers = () => {
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+  };
 
-    const loadNearby = async () => {
-      setLoading(true);
-      try {
-        let resolvedLocation: { lat: number; lng: number } | null = null;
+  const drawSearchRadius = (center: [number, number], radiusKm: number) => {
+    if (!map.current) return;
 
-        // 1) Prefer server-side stored location from session
-        try {
-          const sessionRes = await fetch('/api/session');
-          if (sessionRes.ok) {
-            const sessionData = await sessionRes.json();
-            if (sessionData.lat && sessionData.lng) {
-              resolvedLocation = { lat: sessionData.lat, lng: sessionData.lng };
-            }
-          }
-        } catch (e) {
-          // ignore
-        }
+    const points = 64;
+    const coords: [number, number][] = [];
+    const distanceX =
+      radiusKm / (111.32 * Math.cos((center[1] * Math.PI) / 180));
+    const distanceY = radiusKm / 110.574;
 
-        // 2) If no stored location, ask browser
-        if (!resolvedLocation) {
-          const pos = await getPosition();
-          if (pos && pos.coords) {
-            resolvedLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          }
-        }
+    for (let i = 0; i < points; i++) {
+      const angle = (i / points) * (2 * Math.PI);
+      coords.push([
+        center[0] + distanceX * Math.cos(angle),
+        center[1] + distanceY * Math.sin(angle),
+      ]);
+    }
+    coords.push(coords[0]);
 
-        if (resolvedLocation) {
-          setUserLocation(resolvedLocation);
-        }
-
-        // If we still don't have location, try to use default center
-        const loc = resolvedLocation;
-        const lat = loc?.lat ?? 6.2442;
-        const lng = loc?.lng ?? -75.5898;
-
-        // Progressive search: increase radius until we have a useful set of tutors.
-        const foundMap = new Map<string, Tutor>();
-        for (const r of radii) {
-          try {
-            const res = await fetchApi<TutorsResponse | Tutor[]>(`/tutors?lat=${lat}&lng=${lng}&radius=${r}&limit=50`);
-            let list: Tutor[] = [];
-            if (Array.isArray(res)) list = res as Tutor[];
-            else if (res && Array.isArray((res as TutorsResponse).tutors)) list = (res as TutorsResponse).tutors as Tutor[];
-            for (const tutor of list) {
-              const key = `${tutor.user_id}-${tutor.id}`;
-              foundMap.set(key, tutor);
-            }
-            if (foundMap.size >= 8) {
-              break;
-            }
-          } catch (e) {
-            // ignore and try larger radius
-          }
-        }
-
-        const merged = Array.from(foundMap.values());
-        if (mounted) setTutors(merged.length > 0 ? merged : []);
-      } finally {
-        if (mounted) setLoading(false);
-      }
+    const geojson: GeoJSON.Feature = {
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [coords] },
+      properties: {},
     };
 
-    loadNearby();
-    return () => { mounted = false; };
+    if (map.current.getSource('search-radius')) {
+      (map.current.getSource('search-radius') as mapboxgl.GeoJSONSource)
+        .setData(geojson);
+    } else {
+      map.current.addSource('search-radius', {
+        type: 'geojson',
+        data: geojson,
+      });
+      map.current.addLayer({
+        id: 'search-radius-fill',
+        type: 'fill',
+        source: 'search-radius',
+        paint: { 'fill-color': '#6C63FF', 'fill-opacity': 0.08 },
+      });
+      map.current.addLayer({
+        id: 'search-radius-line',
+        type: 'line',
+        source: 'search-radius',
+        paint: {
+          'line-color': '#6C63FF',
+          'line-width': 2,
+          'line-dasharray': [2, 2],
+        },
+      });
+    }
+  };
+
+  const searchTutors = async (center: [number, number]) => {
+    setIsSearching(true);
+    clearMarkers();
+
+    for (const radius of RADII) {
+      setCurrentRadius(radius);
+      drawSearchRadius(center, radius);
+
+      map.current?.easeTo({
+        center,
+        zoom: radius <= 5 ? 13 : radius <= 15 ? 11 : 9,
+        duration: 800,
+      });
+
+      try {
+        const res = await fetchApi<TutorsResponse | Tutor[]>(
+          `/tutors?lat=${center[1]}&lng=${center[0]}&radius=${radius}&limit=50`
+        );
+        const list: Tutor[] = Array.isArray(res)
+          ? res
+          : (res as TutorsResponse).tutors ?? [];
+
+        const withCoords = list.filter(t => {
+          const lat = t.lat ?? t.latitude;
+          const lng = t.lng ?? t.longitude;
+          return typeof lat === 'number' && typeof lng === 'number';
+        });
+
+        if (withCoords.length >= 3) {
+          withCoords.forEach(tutor => {
+            const lat = (tutor.lat ?? tutor.latitude) as number;
+            const lng = (tutor.lng ?? tutor.longitude) as number;
+            const name = tutor.display_name ?? tutor.full_name ?? 'Tutor';
+            const avatar =
+              tutor.avatar_url ??
+              `https://api.dicebear.com/7.x/avataaars/svg?seed=${tutor.user_id}`;
+
+            const el = document.createElement('div');
+            el.style.cssText = `
+              width:42px;height:42px;border-radius:50%;
+              border:3px solid white;
+              box-shadow:0 4px 12px rgba(0,0,0,0.3);
+              background-image:url('${avatar}');
+              background-size:cover;cursor:pointer;
+            `;
+
+            const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+              <div style="padding:8px;min-width:180px;font-family:sans-serif">
+                <strong>${name}</strong><br/>
+                <span style="color:#666;font-size:12px">
+                  ${tutor.specialties?.slice(0, 2).join(' • ') ?? 'Tutor'}
+                </span><br/>
+                <span style="font-weight:600">
+                  $${tutor.hourly_rate ?? 20}/hr
+                </span>
+                <div style="display:flex;gap:6px;margin-top:8px">
+                  <a href="/profile/${tutor.user_id}"
+                    style="flex:1;text-align:center;padding:4px 8px;
+                    border:1px solid #ddd;border-radius:6px;
+                    font-size:12px;text-decoration:none;color:#333">
+                    Perfil
+                  </a>
+                  <a href="/messages?userId=${tutor.user_id}"
+                    style="flex:1;text-align:center;padding:4px 8px;
+                    background:#6C63FF;color:white;border-radius:6px;
+                    font-size:12px;text-decoration:none">
+                    Contactar
+                  </a>
+                </div>
+              </div>
+            `);
+
+            const marker = new mapboxgl.Marker(el)
+              .setLngLat([lng, lat])
+              .setPopup(popup)
+              .addTo(map.current!);
+
+            markersRef.current.push(marker);
+          });
+
+          setFoundCount(withCoords.length);
+          setIsSearching(false);
+          return;
+        }
+      } catch {
+        // ignorar y probar radio mayor
+      }
+
+      await new Promise(r => setTimeout(r, 900));
+    }
+
+    setFoundCount(0);
+    setIsSearching(false);
+  };
+
+  useEffect(() => {
+    if (map.current || !mapContainer.current) return;
+
+    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+
+    map.current = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: DEFAULT_CENTER,
+      zoom: 12,
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    map.current.on('load', () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          ({ coords }) => {
+            const center: [number, number] = [
+              coords.longitude,
+              coords.latitude,
+            ];
+            map.current?.flyTo({ center, zoom: 13, duration: 1500 });
+            searchTutors(center);
+          },
+          () => {
+            searchTutors(DEFAULT_CENTER);
+          },
+          { enableHighAccuracy: true, timeout: 8000 }
+        );
+      } else {
+        searchTutors(DEFAULT_CENTER);
+      }
+    });
+
+    return () => {
+      clearMarkers();
+      map.current?.remove();
+      map.current = null;
+    };
   }, []);
 
-  const tutorsWithCoords = (tutors || []).filter((tutor) => {
-    const longitude = tutor.lng ?? tutor.longitude;
-    const latitude = tutor.lat ?? tutor.latitude;
-    return typeof longitude === "number" && typeof latitude === "number";
-  });
-
-  const center: [number, number] = userLocation ? [userLocation.lat, userLocation.lng] : [6.2442, -75.5898];
-  const zoom = userLocation ? 13 : 12;
-
   return (
-    <div className="w-full h-full min-h-125 rounded-lg overflow-hidden border shadow-sm">
-      <MapContainer center={center} zoom={zoom} className="h-full w-full" scrollWheelZoom>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+    <div className="relative w-full h-full min-h-[500px]">
+      <div ref={mapContainer} className="w-full h-full rounded-lg" />
 
-        {tutorsWithCoords.map((tutor) => {
-          const longitude = (tutor.lng ?? tutor.longitude) as number;
-          const latitude = (tutor.lat ?? tutor.latitude) as number;
-          const name = tutor.display_name || tutor.full_name || "Tutor";
-          const initials = name.substring(0, 2).toUpperCase();
-          const avatarUrl = getTutorAvatar(tutor);
-          const markerIcon = createAvatarIcon(avatarUrl, name);
-          
-          return (
-            <Marker key={`${tutor.user_id}-${tutor.id}`} position={[latitude, longitude]} icon={markerIcon}>
-              <Popup className="custom-popup" maxWidth={300}>
-                <div className="p-3 min-w-48">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Avatar className="h-12 w-12 border-2 border-primary">
-                      <AvatarImage src={avatarUrl} alt={name} />
-                      <AvatarFallback>{initials}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <h3 className="font-bold text-sm">{name}</h3>
-                      <p className="text-xs text-muted-foreground">${tutor.hourly_rate || 20}/h</p>
-                    </div>
-                  </div>
+      {isSearching && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2
+          bg-white/90 backdrop-blur-sm border rounded-full px-4 py-2
+          shadow-md text-sm flex items-center gap-2 z-10">
+          <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+          Buscando tutores en {currentRadius} km...
+        </div>
+      )}
 
-                  {Array.isArray(tutor.specialties) && tutor.specialties.length > 0 && (
-                    <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                      {tutor.specialties.slice(0, 3).join(" • ")}
-                    </p>
-                  )}
-                  
-                  <div className="flex gap-2">
-                    <Link href={`/profile/${tutor.user_id}`} className="flex-1">
-                      <Button size="sm" variant="outline" className="w-full">
-                        Ver Perfil
-                      </Button>
-                    </Link>
-                    <Link href={`/messages?userId=${tutor.user_id}`} className="flex-1">
-                      <Button size="sm" className="w-full gap-2">
-                        <MessageSquare className="h-4 w-4" />
-                        Mensaje
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MapContainer>
+      {!isSearching && foundCount > 0 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2
+          bg-white/90 backdrop-blur-sm border rounded-full px-4 py-2
+          shadow-md text-sm z-10">
+          ✅ {foundCount} tutores encontrados en {currentRadius} km
+        </div>
+      )}
+
+      {!isSearching && foundCount === 0 && currentRadius > 0 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2
+          bg-white/90 backdrop-blur-sm border rounded-full px-4 py-2
+          shadow-md text-sm z-10 text-muted-foreground">
+          No se encontraron tutores en tu zona
+        </div>
+      )}
     </div>
   );
 }

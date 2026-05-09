@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
+import { EditProfileDialog } from "@/components/profile/edit-profile-dialog";
 
 interface UserProfile {
   user_id: string;
@@ -62,10 +63,15 @@ export default async function MyProfilePage() {
             <AvatarImage src={userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`} alt={resolvedDisplayName} />
             <AvatarFallback>{(resolvedDisplayName || "US").substring(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
-          <div>
-            <CardTitle>{resolvedDisplayName}</CardTitle>
+          <div className="flex-1">
+            <CardTitle className="mb-1">{resolvedDisplayName}</CardTitle>
             <CardDescription>{resolvedLocation}</CardDescription>
           </div>
+          <EditProfileDialog initialData={{ 
+            display_name: resolvedDisplayName,
+            bio: userProfile?.bio,
+            location_name: userProfile?.location_name
+          }} />
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-muted-foreground">{resolvedBio}</p>

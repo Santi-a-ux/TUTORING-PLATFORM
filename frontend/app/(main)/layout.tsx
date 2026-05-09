@@ -4,8 +4,8 @@ import { fetchApi } from "@/lib/api";
 import { logoutAction } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Bell } from "lucide-react";
 import Breadcrumb from "@/components/ui/breadcrumb";
+import { NotificationsBell } from "@/components/layout/notifications-bell";
 
 interface SessionUser {
   user_id?: string;
@@ -43,7 +43,7 @@ export default async function MainLayout({
           <div className="flex items-center gap-3">
             <SidebarTrigger />
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 rounded-full bg-[var(--primary)] text-white font-bold flex items-center justify-center">TM</div>
+              <div className="h-9 w-9 rounded-full bg-primary text-white font-bold flex items-center justify-center">TM</div>
               <div className="hidden md:block">
                 <div className="text-sm font-semibold">TutorMatch</div>
                 <Breadcrumb />
@@ -52,9 +52,7 @@ export default async function MainLayout({
           </div>
 
           <div className="ml-auto flex items-center gap-3">
-            <button className="p-2 rounded-md hover:bg-muted/30">
-              <Bell className="w-5 h-5 text-muted-foreground" />
-            </button>
+            <NotificationsBell />
             <div className="flex items-center gap-3 rounded-md border bg-muted/40 px-3 py-1.5">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`} alt={userLabel} />

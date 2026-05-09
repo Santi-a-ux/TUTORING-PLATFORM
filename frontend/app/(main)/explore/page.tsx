@@ -19,7 +19,7 @@ interface TutorsResponse {
   tutors?: Tutor[];
 }
 
-// Importación dinámica obligatoria para Mapbox (depende del objeto window y no debe ser SSR)
+// Importación dinámica obligatoria para Leaflet (depende del objeto window y no debe ser SSR)
 const MapboxMap = dynamic(() => import("@/components/map/MapboxMap"), {
   ssr: false,
   loading: () => <Skeleton className="w-full h-full min-h-[500px] rounded-lg flex items-center justify-center">Cargando mapa interactivo...</Skeleton>
@@ -67,7 +67,7 @@ export default function ExplorePage() {
           <div className="absolute left-1/2 -translate-x-1/2 top-6 z-20 w-[min(720px,90%)]">
             <div className="backdrop-blur-sm bg-white/40 border border-white/30 rounded-full p-2 flex items-center gap-3 px-4">
               <input className="flex-1 bg-transparent outline-none" placeholder="Buscar tutores, materias o ubicación" />
-              <button className="px-3 py-1 rounded-md bg-[var(--primary)] text-white">Buscar</button>
+              <button className="px-3 py-1 rounded-md bg-primary text-white">Buscar</button>
             </div>
           </div>
           <MapboxMap />

@@ -56,16 +56,25 @@ export function TutorCard({
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {skills?.slice(0, 4).map((s) => (
-              <Badge key={s} className="bg-[#EDE7F6] text-[var(--primary)]">{s}</Badge>
+              <Badge key={s} className="bg-accent text-primary">{s}</Badge>
             ))}
           </div>
         </div>
       </div>
       <div className="p-3 border-t flex items-center justify-between bg-card">
         <div className="font-semibold">${hourly_rate || 20} <span className="text-muted-foreground font-normal">/ hr</span></div>
-        <Link href={`/profile/${user_id}`}>
-          <Button className="bg-[var(--primary)] text-white hover:bg-[var(--primary)]">Contactar</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link href={`/profile/${user_id}`}>
+            <Button variant="outline" size="sm">
+              Ver Perfil
+            </Button>
+          </Link>
+          <Link href={`/messages?userId=${user_id}`}>
+            <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
+              Contactar
+            </Button>
+          </Link>
+        </div>
       </div>
     </article>
   );

@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, MapPin, Star, Clock } from "lucide-react";
+import { MessageSquare, MapPin, Clock } from "lucide-react";
 import Link from "next/link";
 
 interface TutorProfile {
@@ -35,8 +35,9 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   try {
     tutor = await fetchApi<TutorProfile>(`/tutors/${id}`);
     userProfile = await fetchApi<UserProfile>(`/users/profiles/${id}`).catch(() => null);
-  } catch (error: any) {
-    errorMsg = error.message || "No se pudo cargar el perfil del tutor";
+} catch (error: unknown) {
+      const err = error as Error;
+      errorMsg = err.message || "No se pudo cargar el perfil del tutor";
   }
 
   if (errorMsg || !tutor) {
@@ -52,7 +53,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       <div className="relative">
-        <div className="h-40 w-full rounded-lg overflow-hidden bg-gradient-to-r from-[var(--primary)] to-[var(--primary)]/70" />
+        <div className="h-40 w-full rounded-lg overflow-hidden bg-gradient-to-r from-primary to-primary/70" />
         <div className="absolute left-6 -bottom-8">
           <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
             <AvatarImage
@@ -75,11 +76,11 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
             <div className="mt-4 flex gap-4">
               <div className="flex flex-col">
                 <span className="text-sm text-muted-foreground">Clases dadas</span>
-                <span className="font-semibold">{Math.floor(Math.random() * 200)}</span>
+                <span className="font-semibold text-muted-foreground">—</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-sm text-muted-foreground">Rating</span>
-                <span className="font-semibold">{(tutor.hourly_rate ? (Math.min(5, (tutor.hourly_rate % 5) + 4)).toFixed(1) : '5.0')}</span>
+                <span className="text-sm text-muted-foreground">Sin valoraciones</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-sm text-muted-foreground">Años exp.</span>
@@ -90,7 +91,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
 
           <div className="shrink-0 w-full md:w-auto">
             <Link href={`/messages?userId=${tutor.user_id}`}>
-              <Button size="lg" className="w-full md:w-auto bg-[var(--primary)] text-white">
+              <Button size="lg" className="w-full md:w-auto bg-primary text-white">
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Enviar Mensaje
               </Button>
@@ -101,8 +102,8 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         <div className="mt-6">
           <h3 className="text-sm font-semibold mb-2">Habilidades</h3>
           <div className="flex flex-wrap gap-2">
-            {((tutor.specialties || []).concat(tutor.categories || [])).map((s: any, i: number) => (
-              <span key={i} className="px-3 py-1 rounded-full text-sm bg-[#EDE7F6] text-[var(--primary)]">{s}</span>
+            {((tutor.specialties || []).concat(tutor.categories || [])).map((s: string, i: number) => (
+              <span key={i} className="px-3 py-1 rounded-full text-sm bg-accent text-primary">{s}</span>
             ))}
           </div>
         </div>

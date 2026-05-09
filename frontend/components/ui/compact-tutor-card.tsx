@@ -25,7 +25,7 @@ export default function CompactTutorCard({ user_id, name, specialty, avatar_url 
         <div className="text-xs text-muted-foreground truncate">{specialty || "General"}</div>
       </div>
       <Link href={`/profile/${user_id}`} className="shrink-0">
-        <Button size="sm" className="bg-[var(--primary)] text-white">Ir al perfil</Button>
+        <Button size="sm" className="bg-primary text-white">Ir al perfil</Button>
       </Link>
     </div>
   );

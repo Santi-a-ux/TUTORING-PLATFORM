@@ -29,7 +29,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <div className="flex items-center justify-center py-4">
-            <div className="h-12 w-12 rounded-full bg-[var(--primary)] text-white font-bold flex items-center justify-center">TM</div>
+            <div className="h-12 w-12 rounded-full bg-primary text-white font-bold flex items-center justify-center">TM</div>
           </div>
           <SidebarGroupLabel className="sr-only">TutorMatch</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -38,11 +38,13 @@ export function AppSidebar() {
                 const isActive = pathname === item.url || pathname?.startsWith(item.url + "/");
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton>
-                      <Link href={item.url} className={`flex items-center gap-2 w-full ${isActive ? 'text-[var(--primary)]' : ''}`}>
-                        <item.icon className={`${isActive ? 'text-[var(--primary)]' : ''}`} />
-                        <span>{item.title}</span>
-                      </Link>
+                    <SidebarMenuButton 
+                      isActive={isActive} 
+                      tooltip={item.title}
+                      render={<Link href={item.url} />}
+                    >
+                      <item.icon />
+                      <span>{item.title}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
