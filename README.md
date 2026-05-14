@@ -64,11 +64,10 @@ curl http://localhost:8005/health  # Chat
 curl http://localhost:8006/health  # Media
 ```
 
-### 5. Cargar datos de ejemplo
+### 5. Crear datos iniciales
 
-```bash
-python scripts/seed.py
-```
+Los datos de ejemplo se cargan automáticamente desde el frontend cuando abres la app por primera vez. 
+Puedes crear nuevos usuarios registrándote en `/register` y crear perfiles de tutor en `/tutor/onboarding`.
 
 ## Desarrollo local (sin Docker)
 

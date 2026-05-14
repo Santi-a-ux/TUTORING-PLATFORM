@@ -145,3 +145,16 @@ async def get_ws_token(current_user: User = Depends(get_current_user)):
     """
     access_token = create_access_token(current_user.id, current_user.role)
     return {"token": access_token}
+
+@router.put("/promote-to-tutor")
+async def promote_to_tutor(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.role != "tutor":
+        current_user.role = "tutor"
+        await db.commit()
+        await db.refresh(current_user)
+
+    access_token = create_access_token(current_user.id, current_user.role)
+    return {"access_token": access_token, "role": current_user.role}

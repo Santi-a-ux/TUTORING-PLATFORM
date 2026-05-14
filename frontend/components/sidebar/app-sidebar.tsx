@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Compass, MessageSquare, User } from "lucide-react";
+import { IconHome, IconExplore, IconMessages, IconProfile } from "@/components/icons/TmIcons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,15 +10,14 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/dashboard", icon: Home },
-  { title: "Explorar", url: "/explore", icon: Compass },
-  { title: "Mensajes", url: "/messages", icon: MessageSquare },
-  { title: "Perfil", url: "/profile/me", icon: User },
+  { title: "Inicio", url: "/dashboard", icon: IconHome },
+  { title: "Explorar", url: "/explore", icon: IconExplore },
+  { title: "Mensajes", url: "/messages", icon: IconMessages },
+  { title: "Perfil", url: "/profile/me", icon: IconProfile },
 ];
 
 export function AppSidebar() {
@@ -29,7 +28,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarGroup>
           <div className="flex items-center justify-center py-4">
-            <div className="h-12 w-12 rounded-full bg-primary text-white font-bold flex items-center justify-center">TM</div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/30 bg-primary/20 text-sm font-bold text-white shadow-lg shadow-primary/20">TM</div>
           </div>
           <SidebarGroupLabel className="sr-only">TutorMatch</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -38,14 +37,14 @@ export function AppSidebar() {
                 const isActive = pathname === item.url || pathname?.startsWith(item.url + "/");
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton 
-                      isActive={isActive} 
-                      tooltip={item.title}
-                      render={<Link href={item.url} />}
+                    <Link
+                      href={item.url}
+                      className={`flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors ${isActive ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground" : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"}`}
+                      aria-current={isActive ? "page" : undefined}
                     >
                       <item.icon />
                       <span>{item.title}</span>
-                    </SidebarMenuButton>
+                    </Link>
                   </SidebarMenuItem>
                 );
               })}

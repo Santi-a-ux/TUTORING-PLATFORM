@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchApi } from "@/lib/api";
+// Use server proxy for profile operations (httpOnly token)
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,36 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
     bio: initialData.bio || "",
     location_name: initialData.location_name || "",
   });
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (file?: File | null) => {
+    if (!file) return null;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("type", "avatar");
+
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        body: fd,
+      });
+
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || d.detail || "Upload failed");
+      }
+
+      const data = await res.json();
+      return data.url || data.file_url || data.url;
+    } catch (err) {
+      const e = err as Error;
+      toast.error(e.message || "Error subiendo la imagen");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -38,10 +68,16 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
     setLoading(true);
 
     try {
-      await fetchApi("/users/profiles/me", {
-        method: "PATCH",
+      const res = await fetch("/api/users/profiles", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || data.detail || "Error al actualizar el perfil");
+      }
 
       toast.success("Perfil actualizado");
       setOpen(false);
@@ -61,9 +97,9 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
         Editar perfil
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-106.25">
           <DialogHeader>
-            <DialogTitle>Editar Pefil</DialogTitle>
+            <DialogTitle>Editar Perfil</DialogTitle>
           </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-4">
           <div className="space-y-2">
@@ -76,6 +112,22 @@ export function EditProfileDialog({ initialData }: EditProfileDialogProps) {
               placeholder="Tu nombre y apellido"
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="avatar">Foto de perfil</Label>
+            <input
+              id="avatar"
+              name="avatar"
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const f = e.target.files?.[0] || null;
+                const url = await handleFile(f);
+                if (url) setFormData((p) => ({ ...p, avatar_url: url } as any));
+              }}
+              className="text-sm text-white/80"
+            />
+            {uploading && <p className="text-xs text-white/50">Subiendo...</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="location_name">Ciudad</Label>

@@ -45,6 +45,7 @@ def _format_profile_out(db_profile: TutorProfile, lat=None, lng=None):
         "user_id": db_profile.user_id,
         "specialties": db_profile.specialties,
         "categories": db_profile.categories,
+        "preferred_payment_method": getattr(db_profile, 'preferred_payment_method', None),
         "hourly_rate": db_profile.hourly_rate,
         "years_experience": db_profile.years_experience,
         "is_available": db_profile.is_available,

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -54,6 +53,11 @@ export default function TutorOnboardingPage() {
   };
 
   const handleSubmit = async () => {
+    if (!locationCaptured || !locationCoords) {
+      toast.error("Primero captura tu ubicación para poder mostrarte en el mapa.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       const payload: Record<string, unknown> = {
@@ -65,14 +69,30 @@ export default function TutorOnboardingPage() {
         lng: locationCoords?.lng || null,
       };
 
-      await fetchApi("/tutors/profiles", {
+      const response = await fetch("/api/tutors/profiles", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
       });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          toast.error(data.error || "Sesión expirada. Vuelve a iniciar sesión.");
+          router.replace("/login");
+          return;
+        }
+
+        throw new Error(data.detail || data.error || "Error al crear el perfil de tutor.");
+      }
+
       toast.success("¡Perfil de tutor creado exitosamente!");
       router.push("/dashboard");
     } catch (error) {
-      toast.error("Error al crear el perfil de tutor.");
+      toast.error(error instanceof Error ? error.message : "Error al crear el perfil de tutor.");
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -81,10 +101,10 @@ export default function TutorOnboardingPage() {
 
   return (
     <div className="flex h-[calc(100vh-6rem)] items-center justify-center p-4">
-      <Card className="w-full max-w-lg shadow-lg">
+      <Card className="w-full max-w-lg rounded-2xl border border-white/8 bg-white/5 shadow-none">
         <CardHeader>
           <div className="flex justify-between items-center mb-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">
               Paso {step} de 3
             </span>
             <div className="flex gap-1">
@@ -92,14 +112,14 @@ export default function TutorOnboardingPage() {
                 <div
                   key={i}
                   className={`h-2 w-8 rounded-full ${
-                    step >= i ? "bg-primary" : "bg-muted"
+                    step >= i ? "bg-primary" : "bg-white/10"
                   }`}
                 />
               ))}
             </div>
           </div>
-          <CardTitle className="text-2xl">Conviértete en Tutor</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl text-white">Conviértete en Tutor</CardTitle>
+          <CardDescription className="text-white/40">
             {step === 1 && "Cuéntanos sobre ti y tu experiencia."}
             {step === 2 && "Configura tus temas y tarifas."}
             {step === 3 && "Revisa y confirma tu información."}
@@ -110,29 +130,29 @@ export default function TutorOnboardingPage() {
           {step === 1 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
-                <Label htmlFor="bio">Biografía Profesional</Label>
+                <Label htmlFor="bio" className="text-white/60">Biografía Profesional</Label>
                 <Textarea
                   id="bio"
                   name="bio"
                   placeholder="Hola, soy experto en matemáticas con 5 años de experiencia..."
-                  className="h-32"
+                  className="h-32 border-white/10 bg-white/5 text-white placeholder:text-white/20 focus:border-primary/40"
                   value={formData.bio}
                   onChange={handleChange}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label>Ubicación</Label>
+                <Label className="text-white/60">Ubicación</Label>
                 <Button 
                   type="button" 
                   variant="outline" 
-                  className="w-full"
+                  className="w-full border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
                   onClick={handleGetLocation}
                 >
                   {locationCaptured ? "✅ Ubicación capturada" : "📍 Usar mi ubicación actual"}
                 </Button>
                 {locationCaptured && (
-                  <p className="text-xs text-muted-foreground text-center">
+                  <p className="text-center text-xs text-white/40">
                     Coordenadas guardadas. Puedes continuar.
                   </p>
                 )}
@@ -143,18 +163,19 @@ export default function TutorOnboardingPage() {
           {step === 2 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="space-y-2">
-                <Label htmlFor="subjects">Materias (separadas por coma)</Label>
+                <Label htmlFor="subjects" className="text-white/60">Materias (separadas por coma)</Label>
                 <Input
                   id="subjects"
                   name="subjects"
                   placeholder="Matemáticas, Física, Programación"
                   value={formData.subjects}
                   onChange={handleChange}
+                  className="border-white/10 bg-white/5 text-white placeholder:text-white/20 focus:border-primary/40"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="hourly_rate">Tarifa por Hora (USD)</Label>
+                <Label htmlFor="hourly_rate" className="text-white/60">Tarifa por Hora (USD)</Label>
                 <Input
                   id="hourly_rate"
                   name="hourly_rate"
@@ -164,6 +185,7 @@ export default function TutorOnboardingPage() {
                   placeholder="15.00"
                   value={formData.hourly_rate}
                   onChange={handleChange}
+                  className="border-white/10 bg-white/5 text-white placeholder:text-white/20 focus:border-primary/40"
                   required
                 />
               </div>
@@ -172,29 +194,30 @@ export default function TutorOnboardingPage() {
 
           {step === 3 && (
             <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-              <div className="rounded-lg bg-muted/50 p-4 space-y-3">
+              <div className="space-y-3 rounded-xl border border-white/8 bg-white/5 p-4">
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">Biografía</p>
-                  <p className="text-sm">{formData.bio || "No especificada"}</p>
+                  <p className="text-sm font-medium text-white/70">Biografía</p>
+                  <p className="text-sm text-white/70">{formData.bio || "No especificada"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">Materias</p>
-                  <p className="text-sm">{formData.subjects || "No especificadas"}</p>
+                  <p className="text-sm font-medium text-white/70">Materias</p>
+                  <p className="text-sm text-white/70">{formData.subjects || "No especificadas"}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground font-medium">Tarifa</p>
-                  <p className="text-sm">${formData.hourly_rate || "0"}/hora</p>
+                  <p className="text-sm font-medium text-white/70">Tarifa</p>
+                  <p className="text-sm text-white/70">${formData.hourly_rate || "0"}/hora</p>
                 </div>
               </div>
             </div>
           )}
         </CardContent>
 
-        <CardFooter className="flex justify-between border-t p-6">
+        <CardFooter className="flex justify-between border-t border-white/5 p-6">
           <Button
             variant="outline"
             onClick={handleBack}
             disabled={step === 1 || isLoading}
+            className="border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
           >
             <ArrowLeft className="w-4 h-4 mr-2" /> Atrás
           </Button>

@@ -80,6 +80,19 @@ export async function registerAction(prevState: unknown, formData: FormData) {
 
     if (loginResponse.ok) {
       const data = await loginResponse.json();
+
+      // Best-effort profile upsert so full name is persisted on first register.
+      await fetch(`${API_URL}/users/profiles/me`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${data.access_token}`,
+        },
+        body: JSON.stringify({
+          display_name: fullName,
+        }),
+      }).catch(() => null);
+
       const cookieStore = await cookies();
       cookieStore.set("token", data.access_token, {
         httpOnly: true,

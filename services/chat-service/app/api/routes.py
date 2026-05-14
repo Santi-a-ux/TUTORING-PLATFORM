@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy import update
 from typing import List, Dict, Any
 import uuid
 import json
@@ -48,6 +49,43 @@ async def create_conversation(
     await db.refresh(new_conv)
     
     return {"id": str(new_conv.id)}
+
+@router.get("/conversations")
+async def list_conversations(
+    db: AsyncSession = Depends(get_db),
+    user_payload: dict = Depends(verify_token)
+):
+    user_id = uuid.UUID(user_payload.get("sub"))
+
+    result = await db.execute(
+        select(Conversation)
+        .where(Conversation.participant_ids.contains([user_id]))
+        .order_by(Conversation.updated_at.desc())
+    )
+    conversations = result.scalars().all()
+
+    items = []
+    for conversation in conversations:
+        last_message_result = await db.execute(
+            select(Message)
+            .where(Message.conversation_id == conversation.id)
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+        last_message = last_message_result.scalars().first()
+        participant_ids = [str(participant_id) for participant_id in conversation.participant_ids or []]
+        other_participant_id = next((participant_id for participant_id in participant_ids if participant_id != str(user_id)), None)
+
+        items.append({
+            "id": str(conversation.id),
+            "participant_ids": participant_ids,
+            "other_participant_id": other_participant_id,
+            "last_message": last_message.content if last_message else None,
+            "last_message_at": last_message.created_at if last_message else conversation.updated_at,
+            "updated_at": conversation.updated_at,
+        })
+
+    return items
 
 @router.get("/conversations/{conversation_id}/messages")
 async def get_messages(
@@ -183,6 +221,11 @@ async def websocket_endpoint(websocket: WebSocket, client_id: str, token: str = 
                 content=content
             )
             db.add(new_msg)
+            await db.execute(
+                update(Conversation)
+                .where(Conversation.id == uuid.UUID(conv_id))
+                .values(updated_at=datetime.utcnow())
+            )
             await db.commit()
             
             # Publish to receiver's redis channel

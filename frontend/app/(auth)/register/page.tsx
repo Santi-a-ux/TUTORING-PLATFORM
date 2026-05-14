@@ -1,18 +1,15 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { registerAction } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { IconProfile, IconMail, IconLock } from "@/components/icons/TmIcons";
 
 export default function RegisterPage() {
   const [state, formAction, isPending] = useActionState(registerAction, null);
+  const [role, setRole] = useState<'student' | 'tutor'>('student');
 
   useEffect(() => {
     if (state?.error) {
@@ -21,83 +18,99 @@ export default function RegisterPage() {
   }, [state]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-2xl">Crear Cuenta</CardTitle>
-        <CardDescription>
-          Únete a TutorMatch para aprender o enseñar.
-        </CardDescription>
-      </CardHeader>
-      <form action={formAction}>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="fullName">Nombre completo</Label>
-            <Input
-              id="fullName"
+    <div>
+      <div className="mb-8">
+        <h1 className="mb-1 text-2xl font-bold tracking-tight text-white">Crea tu cuenta</h1>
+        <p className="text-sm text-white/40">Únete a estudiantes y tutores de Medellín</p>
+      </div>
+
+      <form action={formAction} className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium uppercase tracking-wider text-white/50">Nombre completo</label>
+          <div className="relative">
+            <IconProfile className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+            <input
               name="fullName"
               type="text"
               placeholder="Juan Pérez"
               required
               disabled={isPending}
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white outline-none transition-all placeholder:text-white/20 focus:border-primary/50 focus:bg-white/8 disabled:opacity-50"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Correo electrónico</Label>
-            <Input
-              id="email"
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium uppercase tracking-wider text-white/50">Correo electrónico</label>
+          <div className="relative">
+            <IconMail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+            <input
               name="email"
               type="email"
               placeholder="correo@ejemplo.com"
               required
               disabled={isPending}
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white outline-none transition-all placeholder:text-white/20 focus:border-primary/50 focus:bg-white/8 disabled:opacity-50"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Contraseña</Label>
-            <Input
-              id="password"
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium uppercase tracking-wider text-white/50">Contraseña</label>
+          <div className="relative">
+            <IconLock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/20" />
+            <input
               name="password"
               type="password"
+              placeholder="Mínimo 8 caracteres"
               required
               disabled={isPending}
+              className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white outline-none transition-all placeholder:text-white/20 focus:border-primary/50 focus:bg-white/8 disabled:opacity-50"
             />
           </div>
-          <div className="space-y-2">
-            <Label>Quiero ser...</Label>
-            <Tabs defaultValue="student" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="student">Estudiante</TabsTrigger>
-                <TabsTrigger value="tutor">Tutor</TabsTrigger>
-              </TabsList>
-              {/* Usamos un input hidden para enviar el rol */}
-              <TabsContent value="student">
-                <input type="hidden" name="role" value="student" />
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Encuentra a tu tutor ideal.
-                </p>
-              </TabsContent>
-              <TabsContent value="tutor">
-                <input type="hidden" name="role" value="tutor" />
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Enseña y monetiza tu conocimiento.
-                </p>
-              </TabsContent>
-            </Tabs>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium uppercase tracking-wider text-white/50">Quiero ser...</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setRole("student")}
+              className={`flex flex-col items-center gap-1 rounded-xl border p-3.5 text-sm font-medium transition-all ${role === "student" ? "border-primary/50 bg-primary/20 text-white shadow-lg shadow-primary/20" : "border-white/10 bg-white/5 text-white/40 hover:bg-white/8 hover:text-white/60"}`}
+            >
+              <span className="text-xl">🎓</span>
+              <span>Estudiante</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole("tutor")}
+              className={`flex flex-col items-center gap-1 rounded-xl border p-3.5 text-sm font-medium transition-all ${role === "tutor" ? "border-primary/50 bg-primary/20 text-white shadow-lg shadow-primary/20" : "border-white/10 bg-white/5 text-white/40 hover:bg-white/8 hover:text-white/60"}`}
+            >
+              <span className="text-xl">📚</span>
+              <span>Tutor</span>
+            </button>
           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Registrarse
-          </Button>
-          <div className="text-sm text-center text-muted-foreground w-full">
-            ¿Ya tienes cuenta?{" "}
-            <Link href="/login" className="text-primary hover:underline">
-              Inicia sesión
-            </Link>
-          </div>
-        </CardFooter>
+          <input type="hidden" name="role" value={role} />
+        </div>
+
+        {state?.error && <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-xs text-red-400">{state.error}</div>}
+
+        <button
+          type="submit"
+          disabled={isPending}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 hover:shadow-primary/50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isPending ? "Creando cuenta..." : "Crear cuenta gratis"}
+        </button>
       </form>
-    </Card>
+
+      <p className="mt-6 text-center text-xs text-white/20">
+        ¿Ya tienes cuenta?{" "}
+        <Link href="/login" className="font-medium text-primary transition-colors hover:text-primary/80">
+          Inicia sesión
+        </Link>
+      </p>
+    </div>
   );
 }

@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi.responses import FileResponse as FastAPIFileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List
 import uuid
 import os
+from pathlib import Path
 from supabase import create_client, Client
 from pydantic import BaseModel
 from datetime import datetime
@@ -14,6 +16,8 @@ from app.database import get_db
 from app.models import FileMetadata
 
 router = APIRouter()
+MEDIA_ROOT = Path(os.getenv("MEDIA_LOCAL_ROOT", "/tmp/ttp-media"))
+PUBLIC_MEDIA_BASE_URL = os.getenv("PUBLIC_MEDIA_BASE_URL", "http://localhost:8006")
 
 # Initialize Supabase client lazily or handle empty config gracefully for local tests
 def get_supabase() -> Client:
@@ -55,9 +59,13 @@ async def upload_file(
     # Generate unique filename
     ext = os.path.splitext(file.filename)[1] if file.filename else ""
     unique_filename = f"{user_id}/{type}/{uuid.uuid4()}{ext}"
-    
-    file_url = f"https://mock-url.local/{unique_filename}"
-    
+
+    # Local file storage fallback so uploads work without external object storage
+    disk_path = MEDIA_ROOT / unique_filename
+    disk_path.parent.mkdir(parents=True, exist_ok=True)
+    disk_path.write_bytes(contents)
+    file_url = f"{PUBLIC_MEDIA_BASE_URL}/media/files/{unique_filename}"
+
     # In a real scenario, uncomment:
     # supabase = get_supabase()
     # res = supabase.storage.from_('media_bucket').upload(unique_filename, contents)
@@ -90,7 +98,21 @@ async def get_file_metadata(file_id: uuid.UUID, db: AsyncSession = Depends(get_d
     if not db_file:
          raise HTTPException(status_code=404, detail="File not found")
     return db_file
-    
+
+@router.get("/files/{file_path:path}")
+async def get_file_content(file_path: str):
+    safe_path = (MEDIA_ROOT / file_path).resolve()
+    media_root_resolved = MEDIA_ROOT.resolve()
+
+    # Prevent path traversal
+    if not str(safe_path).startswith(str(media_root_resolved)):
+        raise HTTPException(status_code=400, detail="Invalid file path")
+
+    if not safe_path.exists() or not safe_path.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FastAPIFileResponse(path=str(safe_path))
+
 @router.delete("/{file_id}")
 async def delete_file(
     file_id: uuid.UUID, 

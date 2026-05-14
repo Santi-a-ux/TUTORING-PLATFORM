@@ -5,6 +5,7 @@
 
 -- Habilitar extensión UUID
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Habilitar PostGIS (para el Geo Service y Tutor Service)
 CREATE EXTENSION IF NOT EXISTS postgis;

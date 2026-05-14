@@ -28,6 +28,18 @@ export async function GET(request: NextRequest) {
 
     const authUser = authResponse.ok ? await authResponse.json() : null;
 
+    if (authResponse.status === 401) {
+      const response = NextResponse.json({ error: "Session expired" }, { status: 401 });
+      response.cookies.set("token", "", {
+        httpOnly: true,
+        secure: false,
+        maxAge: 0,
+        path: "/",
+        sameSite: "lax",
+      });
+      return response;
+    }
+
     if (profileResponse.ok) {
       const userData = await profileResponse.json();
       return NextResponse.json({

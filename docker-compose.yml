@@ -16,7 +16,8 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql
+      - ./scripts/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 5s
@@ -96,6 +97,8 @@ services:
       postgres:
         condition: service_healthy
       auth-service:
+        condition: service_healthy
+      user-service:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
@@ -180,9 +183,12 @@ services:
     env_file: .env
     environment:
       - PORT=8006
+      - MEDIA_LOCAL_ROOT=/media_files
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - media_files:/media_files
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
       interval: 10s
@@ -243,6 +249,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  media_files:
 
 networks:
   default:

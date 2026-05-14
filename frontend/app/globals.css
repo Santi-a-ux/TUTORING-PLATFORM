@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -51,73 +51,71 @@
 }
 
 :root {
-  --font-sans: 'Poppins', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  --background: #E8EAF6;
-  --foreground: oklch(0.145 0 0);
-  --card: #FFFFFF;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: #FFFFFF;
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #6C63FF;
+  --bg: #070710;
+  --surface: #0e0e1c;
+  --surface2: #13131f;
+  --border: rgba(255,255,255,0.07);
+  --border-hover: rgba(255,255,255,0.14);
+  --accent: #7c5cfc;
+  --accent2: #a78bfa;
+  --accent-glow: rgba(124,92,252,0.25);
+  --text: #f0eeff;
+  --text-muted: rgba(240,238,255,0.5);
+  --text-dim: rgba(240,238,255,0.28);
+  
+  /* Compatibilidad con referencias antiguas */
+  --font-sans: 'DM Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  --background: #070710;
+  --foreground: #f0eeff;
+  --card: #0e0e1c;
+  --card-foreground: #f0eeff;
+  --popover: #13131f;
+  --popover-foreground: #f0eeff;
+  --primary: #7c5cfc;
   --primary-foreground: #ffffff;
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.94 0.015 280);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: #EDE7F6;
-  --accent-foreground: oklch(0.45 0.2 275);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.45 0.2 275);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #6C63FF;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #EDE7F6;
-  --sidebar-accent-foreground: oklch(0.45 0.2 275);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.45 0.2 275);
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: rgba(240,238,255,0.5);
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: rgba(240,238,255,0.5);
+  --accent-color: #7c5cfc;
+  --accent-foreground: #f0eeff;
+  --destructive: #ef4444;
+  --border-color: rgba(255,255,255,0.07);
+  --input: rgba(255, 255, 255, 0.06);
+  --ring: rgba(124,92,252,0.5);
+  --radius: 0.75rem;
 }
 
+.landing-dark,
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.7 0.18 275);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.18 275);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.7 0.18 275);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  color-scheme: dark;
+  --bg: #070710;
+  --surface: #0e0e1c;
+  --surface2: #13131f;
+  --border: rgba(255,255,255,0.07);
+  --border-hover: rgba(255,255,255,0.14);
+  --accent: #7c5cfc;
+  --accent2: #a78bfa;
+  --accent-glow: rgba(124,92,252,0.25);
+  --text: #f0eeff;
+  --text-muted: rgba(240,238,255,0.5);
+  --text-dim: rgba(240,238,255,0.28);
+  
+  --background: #070710;
+  --foreground: #f0eeff;
+  --card: #0e0e1c;
+  --card-foreground: #f0eeff;
+  --popover: #13131f;
+  --popover-foreground: #f0eeff;
+  --primary: #7c5cfc;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: rgba(240,238,255,0.5);
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: rgba(240,238,255,0.5);
+  --border-color: rgba(255,255,255,0.07);
+  --input: rgba(255, 255, 255, 0.06);
+  --ring: rgba(124,92,252,0.5);
 }
 
 @layer base {
@@ -133,5 +131,175 @@
   }
   .card:hover {
     transform: translateY(-2px);
+  }
+}
+
+@keyframes radar-pulse {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.75;
+  }
+  70% {
+    opacity: 0.15;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes radar-pulse-2 {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.6;
+  }
+  60% {
+    opacity: 0.12;
+  }
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+
+@keyframes ping-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(108, 99, 255, 0.45);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 0 10px rgba(108, 99, 255, 0);
+  }
+}
+
+.radar-ring {
+  animation: radar-pulse 2.8s ease-out infinite;
+}
+
+.radar-ring-2 {
+  animation: radar-pulse-2 3.4s ease-out infinite;
+  animation-delay: 0.35s;
+}
+
+.radar-ring-3 {
+  animation: radar-pulse 4s ease-out infinite;
+  animation-delay: 0.7s;
+}
+
+.user-dot {
+  animation: ping-dot 2.2s ease-in-out infinite;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded-full px-4 py-2 text-sm font-medium transition-all hover:-translate-y-px;
+    background-color: var(--accent);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background-color: #8f6dff;
+  }
+
+  .btn-ghost {
+    @apply rounded-full px-4 py-2 text-sm transition-all;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .btn-ghost:hover {
+    border-color: var(--border-hover);
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  .btn-secondary {
+    @apply rounded-xl px-4 py-3 text-sm transition-all;
+    background-color: var(--surface2);
+    border: 1px solid var(--border-hover);
+    color: var(--text-muted);
+  }
+
+  .card {
+    @apply rounded-2xl transition-colors;
+    background-color: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  .card:hover {
+    border-color: var(--border-hover);
+  }
+
+  .chip {
+    @apply rounded-full px-3 py-1 text-xs font-medium cursor-pointer transition-all;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+
+  .chip.active {
+    background-color: rgba(124, 92, 252, 0.15);
+    border-color: rgba(124, 92, 252, 0.4);
+    color: var(--accent2);
+  }
+
+  .field-input {
+    @apply w-full rounded-xl py-3 pl-10 pr-4 text-sm outline-none transition-colors;
+    background-color: var(--surface2);
+    border: 1px solid var(--border-hover);
+    color: var(--text);
+  }
+
+  .field-input::placeholder {
+    color: var(--text-dim);
+  }
+
+  .field-input:focus {
+    border-color: rgba(124, 92, 252, 0.5);
+  }
+
+  .nav-item {
+    @apply flex items-center gap-2.5 px-4 py-2.5 text-sm rounded-xl mx-2 cursor-pointer transition-all;
+    color: var(--text-muted);
+  }
+
+  .nav-item:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+  }
+
+  .nav-item.active {
+    background-color: rgba(124, 92, 252, 0.15);
+    color: var(--accent2);
+  }
+
+  .online-indicator {
+    @apply w-1.5 h-1.5 rounded-full;
+    background-color: #4ade80;
+    box-shadow: 0 0 8px #4ade80;
+  }
+
+  .status-badge {
+    @apply rounded-full px-3 py-1 text-xs font-medium inline-flex items-center gap-2;
+    background-color: rgba(124, 92, 252, 0.12);
+    border: 1px solid rgba(124, 92, 252, 0.3);
+    color: var(--accent2);
+  }
+
+  .hero-glow {
+    @apply pointer-events-none absolute inset-0;
+    background: radial-gradient(ellipse at top center, rgba(124, 92, 252, 0.15), transparent 70%);
+  }
+
+  .accent-glow {
+    filter: drop-shadow(0 0 8px rgba(124, 92, 252, 0.25));
   }
 }

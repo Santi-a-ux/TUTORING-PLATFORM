@@ -11,6 +11,7 @@ class TutorProfileBase(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     is_available: Optional[bool] = None
+    preferred_payment_method: Optional[str] = None
 
 class TutorProfileCreate(TutorProfileBase):
     pass
@@ -21,6 +22,7 @@ class TutorProfileUpdate(TutorProfileBase):
 class TutorProfileOut(TutorProfileBase):
     id: UUID4
     user_id: UUID4
+    preferred_payment_method: Optional[str]
     verification_status: str
     is_available: bool
     created_at: datetime

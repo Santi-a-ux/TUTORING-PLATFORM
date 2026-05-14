@@ -19,5 +19,6 @@ class TutorProfile(Base):
     years_experience = Column(Integer, nullable=True)
     verification_status = Column(String(20), default='pending')
     coordinates = Column(Geometry('POINT', srid=4326), nullable=True)
+    preferred_payment_method = Column(String(50), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))

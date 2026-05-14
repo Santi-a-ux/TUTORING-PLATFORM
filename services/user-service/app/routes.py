@@ -69,7 +69,18 @@ async def update_my_profile(
     result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
     profile = result.scalars().first()
     if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
+        # Upsert behavior: if profile does not exist yet, create it with safe defaults.
+        profile = UserProfile(
+            user_id=user_id,
+            display_name=profile_in.display_name or "Usuario",
+            bio=profile_in.bio,
+            avatar_url=profile_in.avatar_url,
+            location_name=profile_in.location_name,
+        )
+        db.add(profile)
+        await db.commit()
+        await db.refresh(profile)
+        return profile
     
     for var, value in vars(profile_in).items():
         if value is not None:
